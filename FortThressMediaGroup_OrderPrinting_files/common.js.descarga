@@ -1,0 +1,1012 @@
+/**
+ * This is so browsers that don't support console.log don't choke on logging functions
+ * @param obj The object to be logged to the console
+ */
+function log(obj) {
+    if (window.console && console.log) console.log(obj);
+}
+/* extensions to javascript's native Date object to return an accurate unix timestamp ( see https://coderwall.com/p/rbfl6g/how-to-get-the-correct-unix-timestamp-from-any-date-in-javascript ) */
+
+Date.prototype.getUnixTime = function() { return this.getTime()/1000|0 };
+
+	/*********** Popup "bubbles" ***********/
+	$(document).on('click', "a[data-role=open_bubble]", function(e){
+		e.preventDefault();
+		$bubble = $( '#' + $(this).data('target_id') );
+		$bubble.fadeToggle();
+		$bubble.css({
+			left: $(this).position().left + $(this).outerWidth() + 20,
+			bottom: $bubble.parent().height() - $(this).position().top - 20
+		});
+
+		var previousContainerWidth = $bubble.data('containerWidth');
+		$bubble.data('containerWidth', $(window).width() > $('footer').width() ? $(window).width() : $('footer').width() );
+		if ( previousContainerWidth != $bubble.data('containerWidth') ) {
+			$bubble.children('.bubble-arrow-border').first().css('left', function(i, v){ return $(this).data('originalLeft') } );
+			$bubble.children('.bubble-arrow').first().css('left', function(i, v){ return $(this).data('originalLeft') } );
+			$bubble.data('overExtendFixed', false);
+		}
+		$bubble.data('overExtend', ( $bubble.data('containerWidth') - ($bubble.offset().left + $bubble.outerWidth())) *-1 );
+		if ( $bubble.data('overExtend') > 0 ){
+			$bubble.css('left', $bubble.position().left - $bubble.data('overExtend')+'px');
+			if ( !$bubble.data('overExtendFixed') ) {
+				$bubble.children('.bubble-arrow-border').first().data('originalLeft', $(this).css('left') ).css('left', function(i, v){ return $(this).position().left + $bubble.data('overExtend') + 'px' } );
+				$bubble.children('.bubble-arrow').first().data('originalLeft', $(this).css('left') ).css('left', function(i, v){ return $(this).position().left + $bubble.data('overExtend') + 'px' } );
+				$bubble.data('overExtendFixed', true);
+			}
+		}
+	})
+	.on('validation_success', ".email-us-form", function(e){
+		$(this).slideUp()
+	})
+	.on('success', ".email-us-form", function(e){
+		var $bubble = $(this).closest('.bubble');
+		$('.email-success', $bubble).slideDown();
+	})
+	.on('click', ".close-bubble", function(e){
+		// Generic function to close bubbles. Attached to all .close-bubble elements
+		e.preventDefault();
+		$(this).closest('.bubble').find('.bubble').fadeOut();
+		$(this).closest('.bubble').fadeOut();
+	})
+		.on('click', '#account_link', function(e){if(e.altKey){e.preventDefault();document.location.href=PREFS.WEBBASE+'manage/?pid='+PREFS.Site_Dir;}})
+
+/***** Alternate popup bubbles *****/
+/* Center popup bubble to the side of the clicked element */
+/* If centering the bubble would push it above 0,0, it shifts downward as needed. */
+	$(document).on('click', "a[data-role=new_open_bubble]", function(e){
+		e.preventDefault();
+        var clickedElement = $(this);
+        clickedElement.coordinates = clickedElement.offset();
+		$bubble = $( '#' + $(this).data('target_id') ).detach();
+        $('body').append($bubble);
+        $bubble.fadeToggle();
+        clickedElement.vCenter = clickedElement.coordinates.top + (clickedElement.outerHeight() / 2);
+        $bubble.vCenter = $bubble.outerHeight() / 2;
+        if(clickedElement.vCenter - $bubble.vCenter >= 0){
+            var vAdjust = 0;
+        } else {
+            var vAdjust = $bubble.vCenter - clickedElement.vCenter;
+        }
+        var hAdjust = 20;
+		$bubble.css({
+			left: clickedElement.coordinates.left + clickedElement.innerWidth() + hAdjust,
+			top: clickedElement.vCenter - $bubble.vCenter + vAdjust
+		});
+
+        // Set arrow position...
+        var bubbleArrow = $bubble.children('.bubble-arrow').first();
+        var bubbleArrowBorder = $bubble.children('.bubble-arrow-border').first();
+        bubbleArrow.css({
+            top: ($bubble.innerHeight() / 2) - (bubbleArrow.outerHeight() / 2) - vAdjust
+        })
+        bubbleArrowBorder.css({
+            top: ($bubble.innerHeight() / 2) - (bubbleArrowBorder.outerHeight() / 2) - vAdjust
+        })
+
+	})
+	.on('validation_success', ".email-us-form", function(e){
+		$(this).slideUp()
+	})
+	.on('success', ".email-us-form", function(e){
+		var $bubble = $(this).closest('.bubble');
+		$('.email-success', $bubble).slideDown();
+	})
+	.on('click', ".close-bubble", function(e){
+		// Generic function to close bubbles. Attached to all .close-bubble elements
+		e.preventDefault();
+		$(this).closest('.bubble').find('.bubble').fadeOut();
+		$(this).closest('.bubble').fadeOut();
+	})
+		.on('click', '#account_link', function(e){if(e.altKey){e.preventDefault();document.location.href=PREFS.WEBBASE+'manage/?pid='+PREFS.Site_Dir;}})
+
+/***** Other Common Functions ****/
+var previousTop;
+var previousBoxyTop;
+function positionBoxy(){
+	var $myBoxy = $('.boxy-wrapper').not('.sliding-position').eq(0);
+	if ( $myBoxy.length > 0 ) {
+		var $myBoxyParent = $myBoxy.offsetParent();
+    var viewPortHeight = 0;
+    var viewPortScrollTop = 0;
+    var hasMi4pFrame = false;
+    if ( $.browser.msie ) { $viewport = $('body,html,document'); }
+    else { $viewport = $(window); }
+    if( typeof mi4pFrame === "object" && mi4pFrame && mi4pFrame.scrollReceived ) {
+      viewPortHeight = mi4pFrame.height;
+      viewPortScrollTop = mi4pFrame.top;
+      hasMi4pFrame = true;
+      if( ! viewPortHeight ) return;
+    } else {
+      viewPortHeight = $viewport.height();
+      viewPortScrollTop = $viewport.scrollTop();
+    }
+    if( typeof dockable === "object" && dockable && typeof dockable.scroll === "function" ) dockable.scroll(); 
+    if( typeof moveable === "object" && moveable && typeof moveable.scroll === "function" ) moveable.scroll(); 
+    if( typeof scrollCartFooter === "function" ) scrollCartFooter();
+		if ( $myBoxy.outerHeight() > viewPortHeight - 100 || ( hasMi4pFrame && viewPortHeight < $viewport.height() ) ) {
+			$myBoxy
+				.css('position', 'absolute')
+				.css('top', ( viewPortScrollTop - $myBoxyParent.offset().top + parseInt( $myBoxy.css('top').replace('px','') ) ) + 'px')
+				.css('top', ( viewPortScrollTop - $myBoxyParent.offset().top + 50 ) + 'px')
+				.addClass('sliding-position');
+			$('.footer#showOnPositionBoxy')
+				.html( $('.footer#alwaysShow').html() )
+				.show();
+      previousTop = viewPortScrollTop;
+      previousBoxyTop = $myBoxy.offset().top;
+			$(window).scroll(function(){
+        scrollBoxy();
+			});
+		} else {
+			// Should it return to fixed positioning if it once again becomes smaller than the viewport?
+		}
+	}
+}
+
+function scrollBoxy() {
+  var $slidingBoxy = $('.boxy-wrapper.sliding-position');
+  if( $slidingBoxy.length ) {
+    var scrollTop = 0;
+    var winHeight = 0;
+    var hasMi4pFrame = false;
+    var slidingBoxyStart = $slidingBoxy.offset().top;
+    if( typeof mi4pFrame === "object" && mi4pFrame && mi4pFrame.scrollReceived ) {
+      winHeight = mi4pFrame.height;
+      scrollTop = mi4pFrame.top;
+      hasMi4pFrame = true;
+      if( mi4pFrame.animated.boxy ) window.clearTimeout( mi4pFrame.animated.boxy );
+      if( mi4pFrame.scrolling.boxy ) window.clearTimeout( mi4pFrame.scrolling.boxy );
+      if( ! winHeight ) return;
+    } else {
+      scrollTop = $(window).scrollTop();
+      winHeight = $(window).height();
+    }
+    if( hasMi4pFrame && winHeight < $(window).height() ) {
+      var $myBoxy = $slidingBoxy;
+      var $myBoxyParent = $slidingBoxy.offsetParent();
+      var fixedTop = 50;
+      $myBoxy
+				.css('position', 'fixed')
+				.addClass('sliding-position');
+      mi4pFrame.animate( $myBoxy[0], fixedTop, 'boxy' );
+				/* .css('top', ( scrollTop - $myBoxyParent.offset().top + parseInt( $myBoxy.css('top').replace('px','') ) ) + 'px')
+				.css('top', ( scrollTop - $myBoxyParent.offset().top + 50 ) + 'px') */
+			$('.footer#showOnPositionBoxy')
+				.html( $('.footer#alwaysShow').html() )
+				.show();
+    } else {
+      if ( scrollTop <= previousTop && scrollTop < $slidingBoxy.offset().top - 49 ) {
+        $slidingBoxy.css({ 'position': 'fixed', 'top': '50px' });
+        $slidingBoxy.removeClass('sliding-position');
+      } else if ( scrollTop >= previousTop && scrollTop + winHeight > $slidingBoxy.offset().top + $slidingBoxy.outerHeight() + 49 ) {
+        $slidingBoxy.css({ 'position': 'fixed', 'top': 'auto', 'bottom': '50px' });
+        $slidingBoxy.removeClass('sliding-position');
+      } else if ( scrollTop <= previousTop && !$slidingBoxy.is('.sliding-position') ) {
+        $slidingBoxy.css({ 'position': 'absolute', 'top': previousBoxyTop + 'px' });
+        $slidingBoxy.addClass('sliding-position');
+      } else if ( scrollTop >= previousTop && !$slidingBoxy.is('.sliding-position') && $slidingBoxy.offset().top == scrollTop + 50 ) {
+        $slidingBoxy.css({ 'position': 'absolute', 'top': previousBoxyTop + 'px' });
+        $slidingBoxy.addClass('sliding-position');
+      }
+    }
+    previousTop = scrollTop;
+    previousBoxyTop = $slidingBoxy.offset().top;
+  }  
+}
+
+function formatBoxy(){
+	$('.title-bar').addClass('opc-bg-color gradient');
+	$('.answers input').addClass('small site-color button');
+	positionBoxy();
+}
+
+	function init_droppables(){
+		$('tr.job').droppable('destroy');
+		$('tr.job').droppable({
+			accept: '.ready_to_send',
+			over: function(e, ui){
+				$(this).addClass('file_coming');
+			},
+			out: function(e, ui){
+				$(this).removeClass('file_coming');
+			},
+			drop: function(e, ui){
+				$(this).removeClass('file_coming');
+				sendFiles( ui.draggable, $(this).data('job_id') );
+			}
+		});
+		$historyLinks = $('a.history_button');
+		$historyLinks.unbind('click');
+		$historyLinks.boxy({
+			modal:true,
+			cache:true,
+			hideFade:true,
+			hideShrink:'',
+			afterShow:new Function( 'formatBoxy()' )
+		});
+	}
+
+$(document).ready(function(){
+	// send file popup
+	if(window.location.hash=="#send-file-popup") {
+		if($('a[href="#send-file-popup"]').length==0) $('body').append($('<a href="#send-file-popup"></a>'));
+		$('a[href="#send-file-popup"]').eq(0).click();
+	}
+
+	$(document).off('click', 'nav > a');
+	$('.datepicker:visible').each(function() {
+		if($(this).closest('#templateForm:visible').length==0||$(this).closest('#templateForm').css('visibility')!="hidden") $(this).datepicker();
+	});
+
+	// fix hash links with base tag
+	$("a[href^='\#']" ).on( 'click', function(e){
+		if( ! e.isTrigger ) {
+			var href_split = this.href.split('#');
+			if ( href_split.length > 1 && href_split[1] != "send-file-popup" && href_split[1] != "open_orders") {
+				e.preventDefault();
+				window.location.hash=this.href.substr(this.href.indexOf('#')+1);
+			} else if ( href_split[0] === '' ) {
+				e.preventDefault();
+			}
+    }
+	});
+
+	$(document)
+
+	.on( 'click', "a[href^='\#']", function(e) {
+		e.preventDefault();
+	})
+
+	.on('click', "#opc_content nav > a", function(e){
+		if(!$(this).parent().parent().is('.manage-tools')) {
+			e.preventDefault();
+			e.stopPropagation();
+			$thisLink = $(this);
+			if ( typeof $(this).data('content_file') != 'undefined' && $(this).data('content_file') != '' ) {
+				$( '#'+$(this).prop('href').split('#')[1] ).load('ajax_jquery.iml?mdl='+$(this).data('content_file'), function(){
+					init_droppables();
+					$thisLink.data('content_file', '');
+					$(this).find('.filter_options').trigger('setup');
+					if($('#completed').length==1) $('#completed').find('.pagination').trigger('setup');
+				});
+			}
+			$(this).siblings('.current').removeClass('current');
+			$(this).addClass('current');
+			$(this).parent().siblings('article:visible, section:visible').css('display','none');
+			$( '#'+$(this).prop('href').split('#')[1] ).css('display','inline-block');
+			$( '#'+$(this).prop('href').split('#')[1]+' nav > a.default').click();
+		}
+	})
+	.on('click', "#opc_content a.show_more_files", function(e) {
+		e.preventDefault();
+		var data = {
+			mdl: "system/2011/account/search.mdl",
+      pid: PREFS.Site_Dir,
+      pcid: PREFS.LIMIT_Company_ID,
+			SEARCH_KEYWORD_VALUES: 1,
+			DEBUG: 1,
+			report: "file",
+      RPP: 20
+		};
+		$( '#opc_content article#search' ).empty().load( 'ajax_jquery.iml', data, function() {
+			init_droppables();
+			$(this).find('.filter_options').trigger('setup');
+			if($('#completed').length==1) $('#completed').find('.pagination').trigger('setup');
+		});
+		$( '#opc_content nav > a.current' ).removeClass( 'current' );
+		$( '#opc_content nav > a[href="#search"]' ).addClass( 'current' );
+		$( '#opc_content' ).find( 'article:visible, section:visible' ).css('display','none' );
+		$( '#opc_content article#search' ).css( 'display', 'inline-block' );
+		$( 'document,body,html' ).animate( { scrollTop: $('#opc_content' ).offset().top }, 1000 );
+	})
+  .on('click', "#opc_content a.show_more_payjobs", function(e) {
+		e.preventDefault();
+		var data = {
+			mdl: "system/2011/account/search.mdl",
+      pid: PREFS.Site_Dir,
+      pcid: PREFS.LIMIT_Company_ID,
+			SEARCH_KEYWORD_VALUES: 1,
+			DEBUG: 1,
+			report: "order_pay_online",
+      RPP: 20
+		};
+		$( '#opc_content article#search' ).empty().load( 'ajax_jquery.iml', data, function() {
+			init_droppables();
+			$(this).find('.filter_options').trigger('setup');
+			if($('#completed').length==1) $('#completed').find('.pagination').trigger('setup');
+		});
+		$( '#opc_content nav > a.current' ).removeClass( 'current' );
+		$( '#opc_content nav > a[href="#search"]' ).addClass( 'current' );
+		$( '#opc_content' ).find( 'article:visible, section:visible' ).css('display','none' );
+		$( '#opc_content article#search' ).css( 'display', 'inline-block' );
+		$( 'document,body,html' ).animate( { scrollTop: $('#opc_content' ).offset().top }, 1000 );
+	})
+	.on('click', "#opc_content #order_summary nav a.close", function(e){
+		e.preventDefault();
+		$('#order_summary').dialog('close');
+	});
+	$('nav > a.default').click();
+
+	$('.slidetotarget').unbind('click');
+	$('body').on('click','.slidetotarget',function(e) {
+		e.preventDefault();
+		var slidetoID=$(this).attr('href').replace('#','');
+		$('body,html,document').animate({ scrollTop: $('#'+slidetoID).offset().top }, 1500);
+	});
+	$('.pick-pic img:not(:first)').hide();
+	$('.pick-pic span').eq(1).css({'visibility':'hidden'});
+	$('.pick-pic').on('click','a',function(e) {
+		e.preventDefault();
+		if($('img',$(this).parent()).length>1) {
+			var thisLink = this;
+			var thisPos = 0;
+			$('a',$(this).parent()).each(function() {
+				if(this==thisLink) {
+					$('img',$(this).parent()).eq(thisPos).show();
+					$('span',$(this).parent()).eq(thisPos).css({'visibility':'visible'});
+				} else {
+					$('img',$(this).parent()).eq(thisPos).hide();
+					$('span',$(this).parent()).eq(thisPos).css({'visibility':'hidden'});
+				} thisPos++;
+			});
+		}
+	});
+});
+
+	$(document).on('click', "a[data-role=cart-view]", function(e){
+		e.preventDefault();
+		$thisLink = $(this);
+    var orderId = parseInt( $thisLink.data('order_id') );
+    if( ! orderId || isNaN( orderId ) ) orderId = 0;
+    if( orderId === 0 && PREFS.Allow_Ad_Hoc_Cart_Items ) {
+      var $form = $('<form method="post" action="index.iml"><input type="hidden" name="ORDER_Order_ID" value="0"><input type="hidden" name="mdl" value="2ecommerce/cart.mdl"></form>');
+      $('body').append( $form );
+      $form.submit();
+    } else {
+      /* $thisLink.html('<img src= */
+      Boxy.load('ajax_jquery.iml?mdl=ecommerce/popup-cart_lite.mdl&DEBUG=1&ORDER_Order_ID='+$thisLink.data('order_id')+'&cXML_ID='+PREFS.cXML_ID, {
+        title:'Shopping Cart',
+        closeable: true,
+        modal:true,
+        cache:true,
+        hideFade:true,
+        hideShrink:'',
+        afterShow: function(){
+          formatBoxy();
+          /* var myOrder=null;
+          myOrder=new OrderObject( $('#orderview') ); */
+        },
+        unloadOnHide: true
+      });
+    }
+	});
+	$(document).on('success', "#submit_cart", function(e){
+		Boxy.ask('<h4>Thank you!</h4><p>Your request has been sent.<br>We will be in touch, with details, very soon.</p>', ["Home", "Your Account", "Continue Shopping"],
+			function(val){
+				if ( val == 'Home') window.location=PREFS.WEBBASE
+				else if ( val == 'Your Account') window.location=PREFS.WEBBASE+'account/'
+				else if ( val == 'Continue Shopping') window.location=PREFS.WEBBASE+PREFS.Continue_Shopping_Link
+			}, {
+			title:'Order Received!',
+			modal:true,
+			cache:true,
+			hideFade:true,
+			hideShrink:'',
+			afterShow:new Function( 'formatBoxy()' )
+		});
+	});
+
+	/*********** Feedback that form is loading ***********/
+	$(document).on('click', ".button", function(e){
+		$(this).css('opacity', '0.6' );
+	});
+	$(document).on('blur', ".button", function(e){
+		$(this).css('opacity', '1' );
+	});
+
+	$(document).on('click', ".expand-more_specs", function(e){
+		e.preventDefault();
+		var $link = $(this);
+		var $parentDiv = $link.closest('div.details');
+		$parentDiv.css('height', 'auto')/* .css('min-height','75px') */;
+		$parentDiv.addClass('current');
+		$('.more_specs').each(function(){
+			var $specs = $(this);
+			if ( $specs.closest('div.details').hasClass('current') && !$specs.is(':visible') ) {
+				$specs.slideDown(function(){
+					positionBoxy();
+				});
+				$link.text('Hide specs');
+				$link.css({'position':'static'});
+			} else {
+				$specs.slideUp(function(){
+					$specs.closest('div.details').css('height','81px');
+					$specs.closest('div.details').find('.expand-more_specs').text('Show all specs');
+					$link.css({'position':'absolute'});
+				});
+			}
+		});
+		$parentDiv.removeClass('current');
+	});
+
+		/*********** Cart Item Actions ***********/
+		/* Bind action to click event for removing a job */
+		$(document).on('click', "a[data-role=removeJob]", function(e){
+			e.preventDefault();
+			var $thisJob = $(this).closest('.cart_item');
+			$('aside.remove-this-item', $thisJob).fadeIn();
+		});
+		$(document).on('click', "a[data-role=removeItem]", function(e){
+			e.preventDefault();
+			var $thisJob = $(this).closest('tr');
+			$thisJob.addClass('open-remove').find('aside.remove-this-item').fadeIn();
+		});
+		/* Bind action to click event for cancelling removal of a job */
+		$( document ).on('click', 'a[data-role="cancel-removeJob"]', function(e){
+			e.preventDefault();
+			var $thisJob = $(this).closest('.cart_item');
+			$('aside.remove-this-item', $thisJob).fadeOut();
+		});
+		$( document ).on('click', "a[data-role=cancel-removeItem]", function(e){
+			e.preventDefault();
+			var $thisJob = $(this).closest('tr');
+			$thisJob.removeClass('open-remove').find('aside.remove-this-item').fadeOut();
+		});
+		/* Bind action to click event for confirming removal of a job */
+		$( document ).on('submit', "form[data-role=confirm-removeJob]", function(e){
+			e.preventDefault();
+			var $thisJob = $(this).closest('.cart_item');
+			var $container = $thisJob.closest('.shopping_cart');
+            var Order_ID=$(this).find('input[name="ORDER_Order_ID"]').val();
+			$.post("ajax.iml", $(this).serialize(), function(data) {
+													$thisJob.slideUp(function(){
+														$thisJob.remove();
+
+														if ($container.find('.cart_item').length < 1) {
+															$container.find('.body .cart-row, #payment-info .cart-row, .footer .cart-row').slideUp();
+															$('.summary.cart-cell').closest('aside section').slideUp();
+															$container.find('.continueshopping').slideUp();
+															$container.find('#empty_cart').slideDown();
+															$container.find('section.footer').slideUp();
+															$container.find('section.ecommerce > aside > *').slideUp();
+															$container.find('#empty_cart-aside').slideDown();
+														}else if(PREFS.cXML_ID!=''){
+																Boxy.get($('a.cxml_cancel')).unload();
+																Boxy.load('ajax_jquery.iml?mdl=ecommerce/popup-cart_lite.mdl&DEBUG=1&ORDER_Order_ID='+Order_ID+'&cXML_ID='+PREFS.cXML_ID, {
+																		title:'Shopping Cart',
+																		closeable: true,
+																		modal:true,
+																		cache:true,
+																		hideFade:true,
+																		hideShrink:'',
+																		afterShow: function(){
+																				formatBoxy();
+																				var myOrder=null;
+																				myOrder=new OrderObject( $('#orderview') );
+																		},
+																	afterHide: function () {
+																		location.reload(true);
+																	}
+																});
+
+
+														} else if ($container.find('input[name=No_Pricing]').length < 1) {
+															$('.submit_button').hide();
+															$('.check_out_button').show();
+														}
+														$('a.shopping-cart-link[data-job_count]').each(function() {
+															$(this).attr('data-job_count',$container.find('.cart_item').length);
+														});
+													});
+												});
+		});
+		$( document ).on('change', "input[data-role=enter-job-name]", function(e){
+			$thisForm = $(this).closest('form');
+			$thisForm.submit();
+		});
+		$( document ).on('success', "form[data-role=job-name]", function(e){
+			$(this).after( e.Job_Name );
+			$(this).remove();
+		});
+		$( document ).on('click', 'table#item-listing td:not(".cart-actions")',function() {
+
+		});
+
+
+/**
+ * Loads feedurl into an element with $destination using template
+ * @param feedurl
+ * @param $destination
+ * @param template
+ */
+function loadRSS(feedurl, $destination, template) {
+	if( feedurl != '' && $destination.length > 0 && template != '' ) {
+		var data = {};
+		data.mdl=PREFS.OPC_Version_Path+'proxy.aj';
+		data.FEED_URL=feedurl;
+		data.SUPPRESS_SCRIPTS=1;
+		$.post(PREFS.WINDOW_ORIGIN+'/'+'ajax_jquery.iml', data, function(rdata){
+			var xml = $.parseXML( rdata.trim() );
+			var jso = xml2jso(xml, '');
+			$destination.html( Mark.up( template, jso ) );
+		});
+	} else {
+		log( 'loadRSS() Error' );
+		log( 'feedurl:' + feedurl );
+		log( 'destination:' );
+		log( $destination );
+		log( 'template:' + template );
+	}
+}
+$(document).ready(function(){
+	$('[data-role=rss]').each(function(){
+		loadRSS( $(this).data('feedurl'), $(this), $( $(this).data('templateid') ).text() );
+	});
+});
+
+/**** Pulsing effect ***/
+var pulser = new Array();
+var pulserSpread = new Array();
+function pulseUpdate(pulsingItemId, index) {
+	pulserSpread[index]++;
+	if (pulserSpread[index] > 8) {
+		spread = 18 - pulserSpread[index];
+	} else {
+		spread = 2 + pulserSpread[index];
+	}
+	$('#'+pulsingItemId).css('box-shadow', '0px 0px '+spread+'px #444');
+	if (pulserSpread[index] == 16) {
+		if( $('#'+pulsingItemId).hasClass('stop') ) {
+			$('#'+pulsingItemId).css('box-shadow', '');
+			pulser[index] = window.clearInterval(pulser[index]);
+		} else {
+			pulserSpread[index] = 0;
+		}
+	}
+}
+$(document).ready(function(){
+	$('.pulse').each(function(index){
+		pulserSpread[index] = 0;
+		pulser[index] = setInterval('pulseUpdate("'+$(this).attr('id')+'", '+index+')', 200);
+	});
+
+	$(document)
+		.on('mouseover mouseout click','#help-center-content .documentLibrary.standalone a',function(e) {
+			e.preventDefault();
+			var $this = this;
+			var $content = "This is a sample product listing, meant to show you how the reorder form library looks and feels. It is not a live link. If you're interested in having us create a reorder form library for your company, we'll be happy to help. The reorder form library is a convenient and secure way to manage all of your most frequently ordered printed items. Why not get started today?";
+			$('.info-content').each(function() { if(this.parentNode!=$this) $(this).remove(); });
+			if(e.type=="mouseover"||(e.type=="click"&&$('.info-content',$(this)).length==0)) {
+				$(this).append('<span class="info-content"/>').find('.info-content').text($content);
+			}
+			else if(e.type=="mouseout"||(e.type=="click"&&$('.info-content',$(this)).length==1)) $('.info-content',$(this)).remove();
+		})
+	.on('click','a.cxml_continue',function(e){
+		e.preventDefault();
+		var data={};
+		data.cXML_ID=PREFS.cXML_ID;
+		data.mdl="cxml/closeSession.mdl";
+		$.post('ajax.iml', data,function(){
+			$('form#cxml_continue').submit();
+		},'xml')
+	})
+	.on('click','a.cxml_cancel',function(e){
+		e.preventDefault();
+		var data={};
+		data.cXML_ID=PREFS.cXML_ID;
+		data.mdl="cxml/closeSession.mdl";
+		$.post('ajax.iml', data,function(){
+			$('form#cxml_cancel').submit();
+		},'xml')
+	});
+	if(PREFS.cXML_ID>0){
+		$('a:not([href*="#"])').each(function(){$(this).attr('href',$(this).attr('href')+'?cXML_ID='+PREFS.cXML_ID)});
+	}
+});
+
+// paw subscription form on resources/printerwork/
+$(document).ready(function() {
+	$('.subscribe-box')
+		.on('click','a.subscribe',function(e) {
+			e.preventDefault();
+			var email=$(this).parent().find('input[name=PAW_Email]').val();
+			if(email!=""&&email.indexOf('@')>0) $(this).parent().submit();
+		})
+		.on('success', "form[data-role=subscribe]", function(e){
+			var msg='<p>'+((e.Subscribed==1)?'The email address you entered is already on our Printer@Work mailing list. We have re-sent you the latest issue. Please check your inbox to make sure it came through.</p><p>If you do not receive the newsletter, check your spam folder/settings'+((e.From_Email!="")?' and add the email address <strong>'+e.From_Email+'</strong> to your safelist':''):'All that\'s left is for you to CONFIRM YOUR EMAIL. Please check your inbox for a confirmation email. Click the link in the email to confirm your address, and you\'ll be on your way')+'.</p>';
+			var title=(e.Subscribed==1)?'You are already subscribed to Printer@Work':'You\'re so close!';
+			Boxy.alert(
+				msg,
+				function(){},
+				{
+					title: title,
+					hideFade:true,
+					hideShrink:'',
+					afterShow:new Function( 'formatBoxy()' )
+				}
+			);
+		});
+});
+var LOADED={
+	send_file_js:false,
+	send_file_css:false,
+	printing_product_css:false,
+	account_css:false,
+	jquery_resize:false,
+	two_ecommerce_js:false,
+	two_ecommerce_css:false,
+	ecommerce_common_css:false
+}
+/* SEND A FILE POPUP */
+$(document).on('click','a[href="#send-file-popup"]',function(e) {
+	e.preventDefault();
+	e.stopPropagation();
+	if(location.protocol!=='https:') { // we need to secure the page
+		var newLocation=PREFS.SECUREBASE+location.pathname.substring(1,location.pathname.length);
+		var $form=$('<form method="post" action="'+newLocation+'"></form>');
+		var parsePath=location.pathname.split('/');
+		var curPath=0;
+		for(i=0;i<parsePath.length;i++) { // set PATH_x variables
+			if(parsePath[i]!="") {
+				curPath++;
+				$form.append($('<input type="hidden" name="PATH_'+curPath+'" value="'+parsePath[i]+'">'));
+			}
+		}
+		var urlSplit=location.href.split('?');
+		if(urlSplit.length>1) { // include GET variables
+			if(urlSplit[1].indexOf('&amp;')>-1) { // variables are split by &amp;
+				var getVars = urlSplit[1].split('&amp;');
+			} else { // variables are split by &
+				var getVars = urlSplit[1].split('&');
+			}
+			for(i=0;i<getVars.length;i++) {
+				var key = getVars[i].split('=')[0];
+				var val = (getVars[i].split('=')[1])?getVars[i].split('=')[1]:'';
+				if(val!="") $form.append($('<input type="hidden" name="'+key+'" value="'+val+'">'));
+			}
+		}
+		$form.append($('<input type="hidden" name="SEND_FILE_POPUP" value="1">'));
+		$form.append($('<input type="hidden" name="PAGE_SCROLL_TOP" value="'+$(window).scrollTop()+'">'));
+		if(PREFS.SECUREBASE.indexOf('secured-site6.com')>-1) { // need a pid
+			$form.append($('<input type="hidden" name="pid" value="'+PREFS.Site_Dir+'">'));
+		}
+		if($('body').eq(0).find('div.boxy-modal-blackout').length==0) {
+			$('body').eq(0).append($('<div class="boxy-modal-blackout" style="display: block;"></div>'));
+		}
+		$('body').eq(0).append($form);
+		$form.submit();
+
+	} else { // open a send-a-file popup
+		var $job_id=($(this).data('job_id')&&!isNaN($(this).data('job_id')))?$(this).data('job_id'):'';
+		var $job_name=($job_id!=""&&$(this).data('job_name'))?$(this).data('job_name'):'';
+		if($('link[href*="send_file_popup.css"]').length==0&&!LOADED.send_file_css) { // load send_file_popup.css
+			LOADED.send_file_css=true;
+			$('<link href="'+PREFS.SECUREBASE+PREFS.OPC_Version_Path+'/css/send_file_popup.css?v='+new Date().getTime()+'" type="text/css" rel="stylesheet">').appendTo('head');
+		}
+		if($('link[href*="printing-product.css"]').length==0&&!LOADED.printing_product_css) { // load printing-product.css
+			LOADED.printing_product_css=true;
+			$('<link href="'+PREFS.SECUREBASE+PREFS.OPC_Version_Path+'/css/printing-product.css?v='+new Date().getTime()+'" type="text/css" rel="stylesheet">').appendTo('head');
+		}
+		if($('link[href*="'+PREFS.SECUREBASE+PREFS.OPC_Version_Path+'/css/account.css"]').length==0&&!LOADED.account_css) { // load account.css
+			LOADED.account_css=true;
+			$('<link href="'+PREFS.SECUREBASE+PREFS.OPC_Version_Path+'/css/account.css?v='+new Date().getTime()+'" type="text/css" rel="stylesheet">').appendTo('head');
+		}
+		if(!$(document).removeResize&&!LOADED.jquery_resize) {
+			LOADED.jquery_resize=true;
+			$.getScript(PREFS.SECUREBASE+PREFS.OPC_Version_Path+'js/jquery.resize.js', function() {});
+		}
+		if(typeof fileBoxPopup==="undefined"&&!LOADED.send_file_js) { // send_file_popup.js isn't loaded
+			LOADED.send_file_js=true;
+			$.getScript(PREFS.SECUREBASE+PREFS.OPC_Version_Path+'js/send_file_popup.js', function() {
+				loadFilePopup($job_id,$job_name);
+			});
+		} else {
+			loadFilePopup($job_id,$job_name);
+		}
+	}
+})
+;
+
+function loadFilePopup($job_id,$job_name) {
+	if($('#send_file_popup').length==0) {
+		if($('body').eq(0).find('div.boxy-modal-blackout').length==0) {
+			$('body').eq(0).append($('<div class="boxy-modal-blackout" style="display: block;"></div>'));
+		}
+		if($('a.open-send_file_popup').length==0) {
+			$('body').eq(0).append($('<a class="open-send_file_popup" href="#" style="display:none"></a>'));
+		}
+		$('a.open-send_file_popup').eq(0).data('job_name',$job_name);
+		$('a.open-send_file_popup').eq(0).data('job_id',$job_id);
+		$('a.open-send_file_popup').eq(0).click()
+	}
+}
+
+$(document).on('click', "a[data-role=createOrderFromFiles]", function(e){
+	e.preventDefault();
+	if($(this).closest('#send_file_popup').length==0) {
+		var $thisJob = $(this).closest('.job');
+		var $thisForm = $thisJob.find('form');
+		if( $('select[name="FORM_Path"]', $thisForm).length > 0 ) {
+			e.stopPropagation();
+			var FORM_Path = $('select[name="FORM_Path"] option:selected', $thisForm ).val();
+			var p_arr = FORM_Path.split( '/' );
+			var arr = [];
+			for( var i = 0; i < p_arr.length; i++ ) {
+				var val = p_arr[i].trim();
+				if( val !== "" ) arr.push( val );
+			}
+			$( 'input[name^="PATH_"], input[name="Product_KEY"], input[name="createOrderFromFiles"]', $thisForm ).each( function() {
+				$(this).remove();
+			});
+			var path = 1;
+			for( var i = 0; i < arr.length; i++ ) {
+				$thisForm.append( $( '<input type="hidden" name="PATH_' + path + '" value="' + arr[i] + '">' ) );
+				if( /^[0-9]+$/.test( arr[i] ) ) {
+					$thisForm.append( $( '<input type="hidden" name="Product_KEY" value="' + arr[i] + '">' ) );
+          $thisForm.append( $( '<input type="hidden" name="createOrderFromFiles" value="' + arr[i] + '">' ) );
+				}
+				path++;
+			}
+			var formAction = arr.join("/") + "/";
+		} else {
+			var PATH_2 = $('select[name=PATH_2] option:selected', $thisForm).val();
+			var formAction = 'printing/'+PATH_2+'/';
+		}
+		$thisForm.attr('action', formAction);
+		$thisForm.submit();
+	}
+});
+
+
+/* LEGACY Global Element Editor */
+
+$(document).ready(function() {
+	$('form[name="question"]')
+		.on('click','a.o_edit',function(e) {
+			e.preventDefault();
+			if($('span.o_edit:visible').length==0) {
+				$(this).closest('span').hide();
+				$(this).closest('ul').sortable('disable');
+				$(this).closest('span').siblings('.o_edit').show().find('input[name=QU_Option_NEW]').focus();
+			}
+		})
+		.on('click','a.o_update',function(e) {
+			e.preventDefault();
+			var $this=$(this).closest('span').find('input[name=QU_Option_NEW]');
+			if($this.val()==""&&$this.siblings('input[name=QU_Option_ID]').val()=="") {
+				$(this).closest('li').fadeOut(function() {
+					$(this).remove();
+					$('a.new_option').css({'opacity':1}).show();
+				});
+			} else if($this.val()==$this.siblings('input[name=QU_Option]').val()) {
+				$(this).closest('span').hide();
+				$(this).closest('span').siblings('span.o_display').show();
+				$(this).closest('ul').sortable('enable');
+			} else {
+				var data=$(this).closest('li').find(':input').serializeArray().concat(
+					{"name":"pid","value":PREFS.Site_Dir},
+					{"name":"DEBUG","value":1},
+					{"name":"mdl","value":"manage_tools/elements/updateOption.aj"},
+					{"name":"QU_Element_ID","value":$this.closest('ul').data('element_id')}
+				);
+				$this.closest('ul').addClass('loading');
+				$this.closest('ul').addClass('loading');
+				$.post('json.iml',data,function(rdata){
+					if(rdata.hasOwnProperty('success')) {
+						$this.siblings('input[name=QU_Option]').val($this.val());
+						if(rdata.hasOwnProperty('Option_ID')) {
+							$this.siblings('input[name=QU_Option_ID]').val(rdata.Option_ID);
+						}
+						$this.closest('span').hide();
+						$this.closest('span').siblings('span.o_display').find('output').text($this.val()).end().show();
+						$this.closest('ul').removeClass('loading').sortable('enable');
+						$this.closest('ul').sortable('refresh').trigger('sortupdate');
+						$('a.new_option').css({'opacity':1}).show();
+					} else {
+						if(!rdata.hasOwnProperty('msg')) {
+							rdata.msg="An error occurred. Please try again.";
+						}
+						alert(rdata.msg);
+					}
+				},'json');
+			}
+		})
+		.on('click','a.o_delete',function(e) {
+			e.preventDefault();
+			var $this=$(this);
+			if($(this).closest('li').find('input[name=QU_Option_ID]').val()==""&&$(this).closest('li').find('input[name=QU_Option_NEW]').val()=="") $(this).closest('li').find('a.o_update').click();
+			else if(confirm('Are you sure you want to delete this option?')) {
+				var data=$(this).closest('li').find(':input').serializeArray().concat(
+					{"name":"pid","value":PREFS.Site_Dir},
+					{"name":"DEBUG","value":1},
+					{"name":"QU_Element_ID","value":$(this).closest('ul').data('element_id')},
+					{"name":"mdl","value":"manage_tools/elements/deleteOption.aj"}
+				);
+				$this.closest('ul').addClass('loading');
+				$(window).trigger('scroll');
+				$.post('json.iml',data,function(rdata) {
+					if(rdata.hasOwnProperty('success')) {
+						$this.closest('ul').removeClass('loading').sortable('enable');
+						$this.closest('li').fadeOut(function() {
+							$this.remove;
+							$('ul.legacy_element_editor').sortable('refresh').trigger('sortupdate');
+						});
+					} else {
+						if(!rdata.hasOwnProperty('msg')) {
+							rdata.msg="An error occurred. Please try again.";
+						}
+						alert(rdata.msg);
+					}
+				},'json');
+			}
+		})
+		.on('click','a.replace_list',function(e) {
+			e.preventDefault();
+			if(confirm("Are you sure you want to replace this option list? \r\nAny data associated with the options you remove will be lost.")) {
+				var options="";
+				$('ul.legacy_element_editor').eq(0).find('li').each(function() {
+					if(options!="") options+="\r\n";
+					options+=$(this).find('output').text();
+				});
+				$(this).parent().empty().append($('<textarea name="QU_Options" style="width:300px;height:150px;" dataname="Options"></textarea>'));
+				$('textarea[name=QU_Options]').text(options);
+			}
+		})
+		.on('click','a.new_option',function(e) {
+			e.preventDefault();
+			if($('span.o_edit:visible').length==0) {
+				$('ul.legacy_element_editor').sortable('disable').append($('<li><span class="o_display" style="display:none"><output name="QU_Option"></output><a class="o_edit" href="#"><span>edit</span></a></span><span class="o_edit"><input type="text" name="QU_Option_NEW" value=""><input type="hidden" name="QU_Option" value=""><input type="hidden" name="QU_Option_ID" value=""><a class="o_update" href="#"><span>update</span></a></span><a class="o_delete" href="#"><span>delete</span></a></li>'));
+				$('input[name=QU_Option_NEW]:visible').last().focus();
+				$(this).hide();
+			}
+		});
+	$('ul.legacy_element_editor')
+		.sortable('destroy').sortable({
+			items: "li"
+		})
+		.on('sortupdate',function() {
+			var data=$(this).find(':input').serializeArray().concat(
+				{"name":"pid","value":PREFS.Site_Dir},
+				{"name":"DEBUG","value":1},
+				{"name":"mdl","value":"manage_tools/elements/sortOptions.aj"},
+				{"name":"QU_Element_ID","value":$(this).data('element_id')}
+			);
+			var $this=$(this);
+			$this.sortable('disable').addClass('loading');
+			$(window).trigger('scroll');
+			$.post('json.iml',data,function(rdata){$this.sortable('enable').removeClass('loading');},'json');
+		})
+		;
+		$(window).scroll(function(){
+			var legacy_editor=$('ul.legacy_element_editor.loading');
+			if( legacy_editor.length ) {
+				var winTop=$(window).scrollTop();
+				var winHt=$(window).height();
+				var eTop=legacy_editor.offset().top;
+				var eHt=legacy_editor.outerHeight();
+				if((winTop>eTop&&eTop+eHt>=winTop)||(winTop==eTop)||(winTop<eTop&&winTop+winHt>=eTop)) {
+					var visArea=0; visCenter=0;
+					if(winTop+winHt>=eTop+eHt) {
+						visArea=eHt+eTop-winTop;
+						visCenter=eHt-(visArea/2);
+					}
+					else if(winTop>=eTop){
+						visArea=winHt;
+						visCenter=-(eTop-winTop)+(visArea/2);
+					}
+					else {
+						visArea=winTop+winHt-eTop;
+						visCenter=visArea/2;
+					}
+					$('ul.legacy_element_editor.loading').css({'background-position':'center '+visCenter+'px'});
+				}
+			}
+		});
+});
+function reloadAccountTab() {
+	$('li.nav-Account').load('ajax_jquery.iml?mdl='+PREFS.OPC_Version_Path+'nav_acct.mdl', function() {
+	/*
+		refresh the site nav rollover/dropdown boxes to function properly
+		- designPostNet2011 & designRoundedBiz don't need any refreshing
+		- the remaining design-specific refinements are outlined below
+	*/
+
+	/* designMinimal, designTheCorporation, designPrint */
+		if(typeof $.fn.superfish==="function") {
+			//$(this).find('>a').eq(0).append('<span class="sf-sub-indicator">&#187;</span>');
+			$(this).parent().find('span.sf-sub-indicator').remove();
+			$(this).parent().superfish('load');
+		}
+
+	/* designCleanStyle */
+		if(typeof ddsmoothmenu==="object") {
+
+			ddsmoothmenu.init({
+				mainmenuid: "topmenu", //menu DIV id
+				orientation: 'h', //Horizontal or vertical menu: Set to "h" or "v"
+				classname: 'ddsmoothmenu', //class added to menu's outer DIV
+				//customtheme: ["#1c5a80", "#18374a"],
+				contentsource: "markup" //"markup" or ["container_id", "path_to_menu_file"]
+			})
+		}
+
+	/* designEBIZ, designEcoBusiness */
+		if(typeof jqueryslidemenu==="object") jqueryslidemenu.buildmenu("myslidemenu", arrowimages);
+
+	/* sites with Cufon */
+		if(typeof Cufon==="function") Cufon.refresh();
+
+	/* if you create a custom design that needs code for handling the nav rollovers/dropdowns, add it here */
+	});
+	if(window.location.pathname.replace(/\//g,'')=="account") {
+		$.get( 'ajax_jquery.iml?mdl='+PREFS.OPC_Version_Path+'account.mdl', function( data ) {
+			$('section.ecommerce').replaceWith(data);
+			initAttentionCounts();
+			initHistoryButtons();
+			$('#opc_content.my-account').not('.manage-tools').find('.filter_options').trigger('refresh');
+			setupDatePicker();
+			var inProgressStatus = $('body.uploadInProgress').length>0;
+			$('body').removeClass('uploadInProgress');
+			$('nav > a.default').click();
+			if(inProgressStatus) $('body').addClass('uploadInProgress');
+			setAddressReel();
+		});
+	}
+}
+
+/* force numbers-only text entry for text fields with className 'numbers-only' */
+
+$(document).on('keydown', 'input.numbers-only', function (e) {
+		if (e.ctrlKey && e.which == 86 ) { // paste
+		} else if (e.shiftKey || ((e.which < 45 || (e.which > 57 && e.which < 96) || e.which > 105 || e.which == 47) && e.which != 13 && e.which != 17 && e.which != 8 && e.which != 9 && e.which > 0 && e.which != 190 && e.which != 109 && e.which != 110 && e.which != 173 && e.which != 37 && e.which != 38 && e.which != 39 && e.which != 40)) {
+				e.preventDefault();
+		}
+		if (!$(this).is('.allow-fractions') && (e.which == 110 || e.which == 190)) {
+				e.preventDefault();
+		}
+		if (!$(this).is('.allow-negative') && (e.which == 109 || e.which == 173)) {
+				e.preventDefault();
+		}
+})
+.on( 'paste', 'input.numbers-only', function(e) { // verify that value pasted in meets criteria
+	var exp = /[^0-9]/g;
+	if( $(this).is( '.allow-fractions' ) ) exp = ( $(this).is( '.allow-negative' ) ) ? /[^0-9\.\-]/g : /[^0-9\.]/g;
+	else if( $(this).is( '.allow-negative' ) ) exp = /[^0-9\-]/g;
+	var $this = $(this);
+	var max = ( $this.attr( 'maxlength' ) ) ? $this.attr( 'maxlength' ) : null;
+	if (e && e.originalEvent && e.originalEvent.clipboardData && e.originalEvent.clipboardData.getData) {
+		e.preventDefault();
+		$this.val( cleanOutput( e.originalEvent.clipboardData.getData( 'text/plain' ), exp, max ) );
+	}	else if( window.clipboardData ){
+		e.preventDefault();
+		$this.val( cleanOutput( window.clipboardData.getData('Text'), exp, max ) );
+  } else {
+		window.setTimeout( function() {
+			$this.val( cleanOutput( $this.val(), exp, max ) );
+		}, 100 );
+	}
+})
+
+;
+
+function cleanOutput( input, exp, max ) {
+	if( !max || max == null || isNaN( max ) || max < 1 ) max = null;
+	var output = input.replace( exp, '' );
+	if( max != null && max < output.length ) output = output.substr( 0, max );
+	return output;
+}
+
+$(document).ready(function () {
+	if(PREFS.user_Contact_ID=="102685"||PREFS.DEV_MODE||PREFS.ADMIN_SERVICE||PREFS.Site_Dir=="8821CopyCa") {
+		// reduce initial query to an array of keywords, minus filler words like "the", "and", etc...
+		$('form.product_search input.keyword').on('change', function (e) {
+			var keywordPhrase = $(e.currentTarget).val();
+			keywordPhrase = keywordPhrase.toLowerCase();
+			keywordPhrase = keywordPhrase.replace(/(?:(the|a|an|and|of|for) +)/g, '');
+			var keywords = keywordPhrase.split(/\W/);
+			console.log(keywords);
+			$('input[name="keywords"]').val(keywords.join(" "));
+		});
+	}
+});

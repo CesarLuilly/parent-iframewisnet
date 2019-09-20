@@ -1,0 +1,69 @@
+function isPlaying(audioSource){
+  return audioSource.currentTime > 0 && audioSource.paused !== true;
+}
+function initProductTabs() {
+  $('#product-tabs-ul')
+  .off('click', 'a').on('click', "a", function (e) {
+    e.preventDefault();
+    $(this).closest('#product-tabs-ul').find('li.selected').removeClass('selected');
+    $(this).closest('li').addClass('selected');
+    var index = parseInt($(this).attr('page_number')) - 1;
+    var obj = $(this).closest('#product-tabs').find('.product-inner:not(:eq(' + index + '))').slideUp().end()
+    .find('.product-inner:eq(' + index + ')').slideDown()
+    .find('.product.selected').removeClass('selected');
+    if (obj.length == 0) obj = $(this).closest('#product-tabs');
+    $('html, body').animate({
+      scrollTop: obj.offset().top - 30
+    }, 500);
+  });
+
+  $(document)
+  .off('click', 'div.product .read-toggle').on('click', "div.product .read-toggle", function (event) {
+    event.preventDefault();
+    var div = $(this).closest('.product');
+    div.find('.desc').slideToggle();
+    div.find('.description').slideToggle(function () {
+      if (div.find('.read-toggle:eq(1)').text() == 'Expand') div.find('.read-toggle:eq(1)').text('Collapse')
+      else div.find('.read-toggle:eq(1)').text('Expand');
+    });
+    div.find('.read-toggle').toggleClass('minus');
+    div.find('.thumbnail').toggleClass('disabled');
+    if (div.find('.thumbnail').hasClass('disabled')) {
+      div.find('.thumbnail').fadeTo('slow', 0.3);
+    } else {
+      div.find('.thumbnail').fadeTo('slow', 1);
+    }
+  })
+  .off('click', 'div.product .play_audio').on('click', "div.product .play_audio", function (e) {
+    e.preventDefault();
+    // if the requested audio is playing, pause it and change its link text to "listen"
+    var requestSource = $(e.target);
+    var requestedAudio = $(e.target).closest('.product').find('audio').get(0);
+    var allAudio = $('.product audio');
+    var allAudioLinks = $('.product .play_audio');
+    if (!isPlaying(requestedAudio)){
+      allAudio.each(function(){
+        this.pause();
+      });
+      allAudioLinks.text('Listen');
+      requestSource.text('Pause');
+      requestedAudio.play();
+    } else {
+      requestedAudio.pause();
+      requestSource.text('Listen');
+    }
+  });
+}
+
+initProductTabs(); // converted to function to allow easy recall during docLib pagination
+$(document).ready(function () {
+  $('#product-tabs')
+  .find('.audio_player').each(function () {
+    /* Already initialized in system/2011/js/audio-player/init.js on line 49 */
+  }).end()
+  .find('.product.selected').each(function () {
+    var index = $(this).closest('.product-inner').index();
+    $('#product-tabs-ul').find('a:eq(' + index + ')').click();
+    $(this).find('.read-toggle:eq(0)').click();
+  });
+});

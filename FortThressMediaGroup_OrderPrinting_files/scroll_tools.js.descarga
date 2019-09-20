@@ -1,0 +1,133 @@
+function ImageScroll(container_id,direction,margin){
+  var instance = this;
+  var max_width=0;
+  var max_height=0;
+  var total_width=0;
+  var container_width=0;
+  
+  this._container_height=0;
+  this._container=document.getElementById(container_id);
+  this._no_scroll=0;
+  this._direction=direction;
+  this._shift_x=0;
+  this._shift_y=0;
+  this._margin=margin;  
+  this._lock=false;
+  instance=this;
+  
+  this._container.onmouseover=function(){instance._no_scroll=1; };
+  this._container.onmousemove=function(){instance._no_scroll=1; };
+  this._container.onmouseout=function(){instance._no_scroll=0; };
+  
+  
+  container_width=parseInt(this._container.style.width);
+  
+  
+  var x=this._container.childNodes;
+  for(var i=0; i<x.length; i++){   
+    if(x[i].tagName=='IMG'||x[i].tagName=='DIV'){      
+      if(parseInt(x[i].style.height)>max_height)max_height=parseInt(x[i].style.height);
+      if(parseInt(x[i].style.width)>max_width)max_width=parseInt(x[i].style.width);
+      if(total_width!=0) total_width+=margin;
+      total_width+=parseInt(x[i].style.width);
+    }
+  }  
+  this._container.style.height=max_height+"px";
+  this._container.offsetParent.style.height=max_height+"px";
+  this._container_height=max_height;
+  
+  var iTop=0; var iLeft=0;
+  if(total_width<=container_width){
+   this._container.style.width=total_width+"px";
+   this._container.offsetParent.style.width=total_width+"px";
+   this._no_scroll=1;
+  }else if(total_width-max_width<=container_width){
+   this._container.style.width=(total_width-max_width)+"px";
+   this._container.offsetParent.style.width=(total_width-max_width)+"px";    
+  }
+  
+ /*  
+  pos=this._container;
+  while (pos!=null){
+   this._shift_x+=pos.offsetLeft;
+   this._shift_y+=pos.offsetTop;
+   pos=pos.offsetParent;
+  }
+  */
+  
+  
+  for(var i=0; i<x.length; i++){   
+    if(x[i].tagName=='IMG'||x[i].tagName=='DIV'){      
+      x[i].style.position='absolute';
+      x[i].style.top=(this._shift_y+iTop+(this._container_height-parseInt(x[i].style.height))/2)+"px"; x[i].style.left=(this._shift_x+iLeft)+"px";
+
+      if(this._direction=='r'||this._direction=='l'){ iLeft+=parseInt(x[i].style.width)+margin;
+      }else{iTop+=parseInt(x[i].style.height)+margin; 
+      }         
+    }
+  }  
+  this._container.style.overflow="hidden";    
+  this._container.style.position="absolute";  
+}
+
+function Scroll(instance,speed){
+ if(instance._lock) return;
+ instance._lock=true;
+ if(instance._no_scroll==0){
+  switch(instance._direction){
+   case 'r': case 'right': instance._shift_x+=speed; break;
+   case 'l': case 'left': instance._shift_x-=speed; break;
+   case 'u': case 'up': instance._shift_y-=speed; break;
+   case 'd': case 'down': instance._shift_y+=speed; break;        
+  }     
+  var iTop=0; var iLeft=0;      
+  var x=instance._container.childNodes;
+  var first_i=999;
+  for(var i=0; i<x.length; i++){   
+    if(x[i].tagName=='IMG'||x[i].tagName=='DIV'){      
+      if(first_i==999)first_i=i;
+      x[i].style.top=(iTop+instance._shift_y+(instance._container_height-parseInt(x[i].style.height))/2)+"px";
+      x[i].style.left=(iLeft+instance._shift_x)+"px";
+      if(instance._direction=='r'||instance._direction=='l'){ iLeft+=x[i].offsetWidth+instance._margin;
+      }else{iTop+=x[i].offsetHeight+instance._margin; 
+      }   
+    }
+  }  
+  switch(instance._direction){
+   case 'r': case 'right': 
+      break;
+   case 'l': case 'left': 
+      if(x[first_i].offsetWidth+instance._shift_x<0){
+        instance._shift_x+=x[first_i].offsetWidth+instance._margin;
+        x[first_i].style.top=(iTop+instance._shift_y)+"px";
+        x[first_i].style.left=(iLeft+instance._shift_x)+"px";
+        instance._container.appendChild(x[first_i]);
+      }
+      break;
+   case 'u': case 'up':
+      if(x[first_i].offsetHeight+instance._shift_y<0){
+        instance._shift_y+=x[first_i].offsetHeight+instance._margin;
+        x[first_i].style.top=(iTop+instance._shift_y)+"px"; 
+        x[first_i].style.top=(iTop+instance._shift_y)+"px";      
+        instance._container.appendChild(x[first_i]);
+      }   
+      break;
+   case 'd': case 'down': instance._shift_y+=speed; break;        
+  }
+ }     
+ instance._lock=false;
+}  
+var Scroll_List =new Array();
+function createScroll(container_id,direction,margin,speed,ms){
+   var i=Scroll_List.length;
+   Scroll_List[i] = new  ImageScroll(container_id,direction,margin);
+   Scroll_List[i].speed=speed;
+   Scroll_List[i].ms=ms;
+   if(speed>0&&Scroll_List[i]._no_scroll==0) Scroll_List[i].TimeOutID = window.setInterval('Scroll(Scroll_List['+i+'],'+speed+');',ms);
+}  
+function stopScroll(){
+  for(i=0; i<Scroll_List.length; i++){ window.clearInterval(Scroll_List[i].TimeOutID);}
+}
+function restartScroll(){
+  for(i=0; i<Scroll_List.length; i++){ Scroll_List[i].TimeOutID = window.setInterval('Scroll(Scroll_List['+i+'],'+Scroll_List[i].speed+');',Scroll_List[i].ms);}
+}

@@ -1,0 +1,91 @@
+		function Evt(evt) {
+      if(evt&&evt.x&&evt.source){
+        this.evt=evt.evt;
+        this.source=evt.source;
+        this.x=evt.x;
+        this.y=evt.y;
+        this.key=evt.key;
+      }else{
+  			this.evt = evt ? evt : window.event; 
+  			this.source = this.evt.target ? this.evt.target : this.evt.srcElement;
+  			this.x = this.evt.pageX ? this.evt.pageX : (this.evt.clientX+(document.documentElement.scrollLeft || document.body.scrollLeft));
+    		this.y = this.evt.pageY ? this.evt.pageY : (this.evt.clientY+(document.documentElement.scrollTop || document.body.scrollTop));
+        if(navigator && navigator.vendor && navigator.vendor.indexOf('Apple')==0){
+          this.y=window.innerHeight-this.evt.pageY+document.body.scrollTop+16;
+        }
+        if(!document.all)this.key=this.evt.which;else this.key=this.evt.keyCode;
+      }
+		}
+		
+		Evt.prototype.toString = function () {
+			return "Evt [ x = " + this.x + ", y = " + this.y + " ]";
+		};
+		
+		Evt.prototype.consume = function () {
+			if (this.evt.stopPropagation) {
+				this.evt.stopPropagation();
+				this.evt.preventDefault();
+			} else if (this.evt.cancelBubble) {
+				this.evt.cancelBubble = true;
+				this.evt.returnValue  = false;
+			}
+		};
+		
+		Evt.addEventListener = function (target,type,func,bubbles) {
+			if (document.addEventListener) {
+				target.addEventListener(type,function(e){ func(e);},bubbles);
+			} else if (document.attachEvent) {
+				target.attachEvent("on"+type,function(e){ func(e);},bubbles);
+			} else {
+				target["on"+type] = func;
+			}
+		};
+	
+		Evt.removeEventListener = function (target,type,func,bubbles) {
+			if (document.removeEventListener) {
+				target.removeEventListener(type,func,bubbles);
+			} else if (document.detachEvent) {
+				target.detachEvent("on"+type,func,bubbles);
+			} else {
+				target["on"+type] = null;
+			}
+		};
+    
+    Evt.dispatchEvent=function(target,type,bubbles){
+      if (document.createEvent){
+        var e=document.createEvent("Events");
+        e.initEvent(type,bubbles,false);        
+      }else if(document.createEventObject){
+        var e=document.createEventObject();
+      }else return;
+      if(target.dispatchEvent) target.dispatchEvent(e);
+      else if(target.fireEvent) target.fireEvent("on"+type,e);
+    };
+
+   
+var DHTML = {
+   setOpacity:  function(node,val) {
+      if(node.filters){
+  			try {	node.style.filter="alpha(opacity="+(val*100)+")";	} catch (e) { }
+      }else{        
+        try { node.style.opacity = val;} catch (e) { }
+        try { node.style.MozOpacity = val;} catch (e) { }
+      }
+		},
+   setElementSize: function (elmt,w,h){
+       elmt.style["width"]=(w-5)+"px";
+       elmt.style["height"]=(h-5)+"px";     
+       var dif_w=elmt.offsetWidth-(w-5);  
+       var dif_h=elmt.offsetHeight-(h-5);  
+       if(dif_w>0&&dif_w<100){elmt.style["width"]=(w-dif_w)+"px";}else{elmt.style["width"]=w+"px";}
+       if(dif_h>0&&dif_h<100){elmt.style["height"]=(h-dif_h)+"px";}else{elmt.style["height"]=h+"px";}
+    },
+
+   getSelectedText: function(){ 
+     if (window.getSelection) return window.getSelection(); 
+     else if (document.getSelection) return document.getSelection();
+     else if (document.selection) return document.selection.createRange().text;
+     else return;
+   }
+    
+};    

@@ -1,0 +1,124 @@
+function MoreInfoPopup(){
+  this.popup=null;
+  this.titleObj=null;
+  this.titleObjParentNode=null;
+  this.titleObjNextSibling=null;
+  this.titleObjOrginalDisplay="";
+  this.titleObjOrginalPosition="";
+  this.titleObjOrginalVisibility="";
+  this.contentObj=null;
+  this.contentObjParentNode=null;
+  this.contentObjNextSibling=null;
+  this.contentObjOrginalDisplay="";  
+  this.contentObjOrginalPosition="";  
+  this.contentObjOrginalVisibility="";
+  this.dragger=null;
+}
+MoreInfoPopup.prototype.open=function(title,text,pos,width){
+  if(!width) width=400;
+  if(this.popup) this.close();
+  if(!title){
+    this.titleObj=createTextNode("");    
+  }else if(typeof title =="string"){
+    this.titleObj=document.createTextNode(title);
+  }else if(title.parentNode){
+    this.titleObj=title;
+    this.titleObjParentNode=title.parentNode;
+    this.titleObjNextSibling=title.nextSibling;
+    this.titleObjOrginalDisplay=title.style.display;
+    this.titleObjOrginalPosition=title.style.position;
+    this.titleObjOrginalVisibility=title.style.visibility;
+  }
+  if(!text){
+    this.contentObj=createTextNode("");    
+  }else if(typeof text =="string"){
+    this.contentObj=document.createTextNode(text);
+  }else if(text.parentNode){
+    this.contentObj=text;
+    this.contentObjParentNode=text.parentNode;
+    this.contentObjNextSibling=text.nextSibling;
+    this.contentObjOrginalDisplay=text.style.display;
+    this.contentObjOrginalPosition=text.style.position;
+    this.contentObjOrginalVisibility=text.style.visibility;
+  }
+
+  this.popup=document.createElement("table");
+  this.popup.className="tan-table"; this.popup.style.width=width+"px"; this.popup.style.position="absolute";
+  this.popup.setAttribute('cellspacing','0');this.popup.setAttribute('cellpadding','0');
+  var instance=this;
+    var tbody=document.createElement("tbody");  
+      var tr=document.createElement("tr");
+        var td=document.createElement("td");
+        td.className="podcast-header"; td.style.verticalAlign="top";
+        td.style.padding="4px 10px 4px 10px";       
+        td.setAttribute("isDragHandle",true);
+        td.appendChild(this.titleObj);  
+      tr.appendChild(td);
+        td=document.createElement("td");
+        td.style.textAlign="right";
+        td.style.padding="4px 10px 4px 10px";
+          var input=document.createElement("input");
+          input.type="button"; input.value="Close"; input.className="ff-button";
+          input.onmouseover=function(){this.className='ff-button-alt';};
+          input.onfocus=function(){this.className='ff-button-alt';}; 
+          input.onblur=function(){this.className='ff-button';};
+          input.onmouseout=function(){this.className='ff-button';};
+          input.onclick=function(){instance.close();};    
+        td.appendChild(input);
+      tr.appendChild(td);
+    tbody.appendChild(tr);
+      tr=document.createElement("tr");
+        td=document.createElement("td");
+        td.style.padding="4px 10px 4px 10px";        
+        td.colSpan=2;
+        td.appendChild(this.contentObj);
+      tr.appendChild(td);
+    tbody.appendChild(tr);
+
+  this.popup.appendChild(tbody);
+  if(this.titleObj.nodeType==1){
+    this.titleObj.style.display="";
+    this.titleObj.style.position="";
+    this.titleObj.style.visibility="";
+  }
+  if(this.contentObj.nodeType==1){
+    this.contentObj.style.display="";
+    this.contentObj.style.position="";
+    this.contentObj.style.visibility="";
+  }
+
+  document.body.appendChild(this.popup);
+   
+  pos.reposition(this.popup);
+  this.dragger=new DragObject(this.popup);
+  
+}
+
+MoreInfoPopup.prototype.close=function(){
+  if(this.titleObj&&this.titleObjParentNode){
+    this.titleObj.style.display=this.titleObjOrginalDisplay;
+    this.titleObj.style.position=this.titleObjOrginalPosition;
+    this.titleObj.style.visibility=this.titleObjOrginalVisibility;
+    this.titleObjParentNode.insertBefore(this.titleObj,this.titleObjNextSibling);
+  }
+  if(this.contentObj&&this.contentObjParentNode){
+    this.contentObj.style.display=this.contentObjOrginalDisplay;
+    this.contentObj.style.position=this.contentObjOrginalPosition;
+    this.contentObj.style.visibility=this.contentObjOrginalVisibility;
+    this.contentObjParentNode.insertBefore(this.contentObj,this.contentObjNextSibling);
+  }
+  this.titleObj=null;
+  this.titleObjParentNode=null;
+  this.titleObjNextSibling=null;
+  this.contentObj=null;
+  this.contentObjParentNode=null;
+  this.contentObjNextSibling=null;
+
+  if(this.popup) document.body.removeChild(this.popup);
+  this.popup=null;
+}
+
+
+
+
+var moreInfoPopup=new MoreInfoPopup();

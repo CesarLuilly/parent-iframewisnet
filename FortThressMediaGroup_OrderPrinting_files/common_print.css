@@ -1,0 +1,71 @@
+ .do-not-print { display: none }
+ a.button, input.button { display: none }
+
+ /* START Ideas Collection Printer Friendly */
+ .the-ideas-collection {
+     background: none;
+ }
+ .the-ideas-collection #ideaTabs div.ideasHeader, .the-ideas-collection div.ideaHeader {
+     display: none;
+ }
+
+ .the-ideas-collection #ideaList {
+     display:none;
+ }
+
+ .the-ideas-collection #ideaPage {
+     width: 100%;
+ }
+ .the-ideas-collection #ideaPage h1 {
+     padding: 0 !important;
+     margin: 10px 0 !important;
+     line-height: 1.5em !important;
+ }
+ .the-ideas-collection #ideaPage #social-links {
+     display: none;
+ }
+ .the-ideas-collection #ideaPage .amazon-review {
+     display: block !important;
+ }
+ .the-ideas-collection #site-footer {
+     display: none;
+ }
+ .the-ideas-collection #ideaPage img {
+     max-height: 100% !important;
+     width: initial !important;
+ }
+ .the-ideas-collection #content-area, .the-ideas-collection #main, .the-ideas-collection #page-container .container, .the-ideas-collection #body #left {
+     border: none !important;
+     box-shadow: none;
+     border-radius: 0 !important;
+ }
+ /*Theme Specific*/
+ .the-ideas-collection nav, .the-ideas-collection .logo-holder {
+     display:none !important;
+ }
+
+ .the-ideas-collection h2.feat-heading, .the-ideas-collection #pagetop h1, .the-ideas-collection #pagetop .container, .the-ideas-collection #header, .the-ideas-collection #page_title {
+     display: none !important;
+ }
+
+ .the-ideas-collection #pagetop {
+     height: 140px !important;
+ }
+
+ .the-ideas-collection #subbar, .the-ideas-collection ul#main-menu {
+     display: none;
+ }
+
+ .the-ideas-collection #headerbar, .the-ideas-collection #top-wrapper-inner, .the-ideas-collection #page-heading {
+     display: none;
+ }
+ .the-ideas-collection #crossbar {
+     display: none;
+ }
+ .the-ideas-collection #topmenu, .the-ideas-collection #top {
+     display: none;
+ }
+ .the-ideas-collection #breadcrumbs {
+     display: none;
+ }
+ /* END Ideas Collection Printer Friendly */

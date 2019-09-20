@@ -1,0 +1,569 @@
+	/*********** AJAX Processing and Validation Functions ***********/
+
+	// Generic form submission validator that calls custom success or failure functions based on "status" field in json response after an ajax post
+	$(document).on('submit', "form[data-route=ajax], form[data-route=getJSON], form[data-route=ajax_w_fallback], form[data-route=validation]", function(e){
+		e.preventDefault();
+		$instance = $(this);
+		$('.error-msg').slideUp();
+		if($(this).data('role')=="order-approve") {
+			$(this).closest('td').prepend($('<div class="loading" />'));
+		}
+		formValidated = true;
+		// Find all confirmation fields and make sure they're identical to the original fields
+		$instance.find('input[name|=confirm]').each(function(index){
+			var originalFieldName = $(this).attr('name').replace('confirm-','');
+			var $originalField = $( 'input[name='+originalFieldName+']', $instance );
+			if ( $(this).val() != $originalField.val() ) {
+				formValidated = false;
+				$(this).addClass('msg-no_match');
+			}
+		});
+		// Find all fields that have the word "email" in the field name and make sure they are at least semi-valid email addresses
+		$instance.find('input[type=email]').each(function(index){
+			if ( $(this).val().indexOf('@') < 1 || $(this).val().lastIndexOf('.') < 3 ) {
+				formValidated = false;
+				$(this).addClass('msg-invalid');
+			}
+		});
+		// Find all required fields and make sure they are not blank
+		$instance.find('input[required]').each(function(index){
+			if ( $(this).val() == '' || $(this).val() == $(this).attr('placeholder') ) {
+				formValidated = false;
+				$(this).addClass('msg-required');
+			}else $(this).removeClass('msg-required');
+		}).end().find('select[required]').each(function(index){
+            if(this.selectedIndex==0){
+				formValidated = false;
+				$(this).addClass('msg-required');
+			}else $(this).removeClass('msg-required');
+		}).find(':checkbox[required]:not(:checked),:radio[required]:not(:checked)').each(function(){          
+          if($instance.find(':input[name="'+$(this).attr('name')+'"]:checked').length==0){
+            formValidated=false;
+            $(this).addClass('msg-required');
+          }else $(this).removeClass('msg-required');
+        });
+		
+		if ( $instance.data('ajax_iml') ) ajax_iml = $instance.data('ajax_iml');
+		else ajax_iml = "json.iml";
+		
+		if (formValidated && $instance.data('route') == 'validation') { // Form validated... proceed with submission
+			$instance.data('route', '');
+			$(document).off('submit');
+			$instance.submit();
+		/* } else if (formValidated && $instance.data('route') == 'getJSON') {
+			$.getJSON(ajax_iml, "mdl="+$instance.data('ajax_mdl')+"&"+$instance.serialize(), function(data) {
+				var event = $.Event(data.status); // error if status is not present - handle it somehow!
+				event.error_msg = data.error_msg;
+				$instance.trigger(event);
+			}, 'json'); */
+		} else if (formValidated) { // Route via AJAX, then trigger the appropriate event based on status field
+			$instance.trigger('validation_success');
+			$.post(PREFS.WINDOW_ORIGIN+'/'+ajax_iml, "mdl="+$instance.data('ajax_mdl')+"&"+$instance.serialize(), function(data) {
+				var event = $.Event(data.status); // error if status is not present - handle it somehow!
+				$.extend(event, data);
+					/* for ( var prop in data ) {
+						event[prop] = data[prop];
+					} */
+				event.json = data;
+				if($('html.ie8').length>0&&0==1) {/*
+					event.propertyName=event.type;
+					event.type="propertychange";
+					$instance.ie8Event('trigger',event);
+				*/} else {
+					$instance.trigger(event);
+				}
+			}, 'json');
+		} else { // Error in validation
+			$instance.trigger('validation_error');
+		}
+	});
+	
+	// Validation Error. This function is triggered if the ajax post never even got sent due to errors in the form data
+	$(document).on('validation_error', "form", function(){
+		var $firstError =  $('.msg-invalid, .msg-required, .msg-no_match').first();
+		if( $firstError.length > 0 ) {
+			var windowCenter = $(window).height() / 2;
+			if($(this).closest('.boxy-wrapper').length==0) $('body,html,document').animate({ scrollTop: parseInt($firstError.offset().top - windowCenter) }, 1000);
+			$firstError.focus();
+		}
+		$('.button').animate('opacity',1);
+	});
+	// Failure. This function is triggered if the ajax post returns status=failure in the json response
+	$(document).on('failure', "form[data-route=ajax], form[data-route=getJSON], form[data-route=ajax_w_fallback]", function(e){
+		$errorMSG = $(this).find( $(this).data('ajax_failure_slidedown') );
+    if( ! $errorMSG.length ) $errorMSG = $( $(this).data('ajax_failure_slidedown') );
+		if (e.error_msg) { 
+      if( /<\s*a[^>]*>(.*?)<\s*\/\s*a>/.test(e.error_msg) ) $( '.error-message', $errorMSG ).html(e.error_msg);
+      else $( '.error-message', $errorMSG ).text(e.error_msg);
+    }
+		$errorMSG.slideDown();
+	});
+	// Success! This function is triggered if the ajax post returns status=success in the json response
+	$(document).on('success pending', "form[data-route=ajax_w_fallback]", function(e){
+		var $instance = $(this);
+		if ( $(this).prop('id') == 'create-account' ) {
+			if( $('#create_password').val() == '' ) {
+				$('#create_password').val(e.json.password);
+			}
+			$.post('json_cookies.iml', 'mdl='+PREFS.OPC_Version_Path+'quick_login/login.aj&user_Email='+$('#create_username').val()+'&user_Passwd='+$('#create_password').val(), function(e){
+				var pdftransfer;
+				var connectpdf;
+                var cXML;
+				if ( $instance.find('input[name=pdftransfer]').val() != '' ) {
+					pdftransfer = '?pdftransfer=' + $instance.find('input[name=pdftransfer]').val();
+				} else {
+					pdftransfer = '';
+				}
+                if ( $instance.find('input[name=connectpdf]').val() != '' ) {
+                    connectpdf = '?connectpdf=' + $instance.find('input[name=connectpdf]').val();
+                } else {
+                    connectpdf = '';
+                }
+                if ( $instance.find('input[name=cXML_ID]').val() != '' ) {
+                    cXML = '?cXML_ID=' + $instance.find('input[name=cXML_ID]').val();
+                } else {
+                    cXML = '';
+                }
+				document.location.href=$instance.attr('action')+pdftransfer+connectpdf+cXML;
+			});
+		} else {
+			$instance.data('route', '');
+			$instance.find('input[name|=next_path]').each(function(){
+				$(this).attr( 'name', $(this).attr('name').replace('next_path-','') );
+			});
+			$(document).off('submit');
+			$instance.submit();
+		}
+	});
+	
+	
+	/*********** Login Functions ***********/
+	
+	// Shows the forgot password form
+	$(document).on('click', '#forgot-password-link a', function(e){
+		e.preventDefault();
+		var container=$(this).closest('div');
+		container.find('#forgot-password_username').val($('#signin_username').val());
+		$(this).parent().slideUp();
+		$('.login-intro, .sent-password, #login-form, #error-password',container).slideUp();
+		$('#forgot-password-form',container).slideDown();
+		$('input#forgot-password_username',container).focus();
+	})
+	// Returns to login form
+	.on('click', '#return-to-login-link a', function(e){
+		e.preventDefault();
+		var container=$(this).closest('div');
+		$('#signin_username',container).val($('#forgot-password_username',container).val());
+		$('#error-email, #forgot-password-form', container).slideUp();
+		$('.login-intro, #login-form', container).slideDown(function(){
+			$('#forgot-password-link', container).slideDown();
+		});
+		$('section.register').fadeTo(400,1);
+	});
+	// Password Sent Success! This function is triggered if the password reminder email is successfully sent.
+	$(document).on('success', "#forgot-password-form", function(){
+		$('#signin_username').val($('#forgot-password_username').val());
+		$('#error-email, #accountExists').slideUp();
+		$(this).slideUp();
+		$('.sent-password').slideDown(function(){
+			$('#login-form').slideDown();
+		});
+	});
+	
+	/*********** Error Message Function ***********/
+	
+	// Generic function to close error messages. Attached to all .close-error-msg elements
+	$(document).on('click', ".close-error-msg", function(e){
+		e.preventDefault();
+		$(this).closest('.error-msg').slideUp();
+	});
+
+	
+// FROM js/2ecommerce.js
+$(document).on('focus', ":input.msg-required, :input.msg-invalid, :input.msg-no_match", function(){
+	var $this=$(this);
+	if ( $(this).hasClass('msg-invalid') ) {
+		msgObject = $('#msg-invalid');
+	} else if ( $(this).hasClass('msg-required') ) {
+		msgObject = $('#msg-required');
+	} else {
+		msgObject = $('#msg-no_match');
+	}
+	if($this.is('input[type=hidden]')&&$this.parent().find('input[type=file]').length>0) {
+		$this = $(this).parent().find('input[type=file]').eq(0);
+	}
+	var $outerHeight = (!isNaN(msgObject.outerHeight())) ? msgObject.outerHeight() : parseFloat(msgObject.css('height'))+parseFloat(msgObject.css('padding-top'))+parseFloat(msgObject.css('padding-bottom'));
+	
+	msgObject
+		.css({
+			'top': ($this.offset().top - $outerHeight - 5) + 'px',
+			'left': $this.offset().left + 'px'
+		})
+		.fadeIn()
+	;
+});
+$(document).on('blur', ":input.msg-required, :input.msg-invalid, :input.msg-no_match", function(){
+	$('#msg-required, #msg-invalid, #msg-no_match').hide();
+});
+$(document).on('change', ":input.msg-required, :input.msg-invalid, :input.msg-no_match", function(){
+	$('#msg-required, #msg-invalid, #msg-no_match').hide();
+	$(this).removeClass('msg-required msg-invalid msg-no_match');
+});
+
+$('body').append('<div id="msg-required" class="msg-bubble">Please complete this mandatory field.</div>');
+$('body').append('<div id="msg-invalid" class="msg-bubble">This is not a valid entry. Please check that the information is correct.</div>');
+$('body').append('<div id="msg-no_match" class="msg-bubble">Please make sure that this field matches the previous one exactly.</div>');
+
+	
+	/*********** Address Page Actions ***********/
+	
+	// This function is called when the address drawer is opened and again when a search is conducted - Purpose: resize scrolling address box
+	function adjustAddressFilmstrip($thisDrawer, numItems){
+		var $thisFilmstrip = $('.address_filmstrip', $thisDrawer);
+		var $thisReel = $('.address_reel', $thisDrawer);
+		var $availableAddresses = $('.saved.address', $thisDrawer);
+		
+		$thisFilmstrip.css('width', numItems * 260 + 'px');
+		$thisReel.data('scroll_width', $thisFilmstrip.width() - $thisReel.innerWidth() );
+		if ( numItems > 2 ) { /* $thisFilmstrip.width() > $thisReel.innerWidth() */
+			$thisReel.css('cursor', 'move');
+			$('.address_control', $thisDrawer).show();
+			$('.close-address_drawer a', $thisDrawer).css('right',46);
+		} else {
+			$thisReel.css('cursor', 'default');
+			$('.address_control', $thisDrawer).hide();
+			$('.close-address_drawer a', $thisDrawer).css('right',15);
+		}
+		if( $availableAddresses.length > 6 ) {
+			$('.address_search, .address_search-help', $thisDrawer).show();
+		} else {
+			$('.address_search, .address_search-help', $thisDrawer).hide();
+		}
+	}
+	
+	$(document).on('click', "a[data-role=open-address_drawer],input[data-role=open-address_drawer]", function(e){
+		if ( $(this).is('a') ) e.preventDefault();
+		var $addressDrawer = $('div.address_drawer');
+		var $cartRow = $(this).closest('.cart-row');
+		if ( $cartRow.length > 0 ) $addressDrawer = $cartRow.siblings('.address_drawer');
+		$addressDrawer
+			.data('context', $(this).data('context') )
+			.data('button', $(this).data('button') )
+			.trigger('open');
+	});
+	// User has clicked "Saved Address" under either Billing or Shipping (Or opened the Profile tab in "My Account"). Open address drawer and set the context to billing or shipping
+	$(document).on('open', ".address_drawer", function(e){
+		$('.address_search_box').val('');
+		$thisDrawer = $(this);
+		$thisDrawer.slideDown(function(){ $(this).css('min-height','250px') });
+		thisDrawerContext = $thisDrawer.data('context');
+		$( 'section.address.saved', $thisDrawer ).removeClass('not_in_search').hide();
+		
+		$inContextAddresses = $( 'section.address.saved.for_'+thisDrawerContext, $thisDrawer );
+		adjustAddressFilmstrip( $thisDrawer, $inContextAddresses.length );
+		
+		$( $inContextAddresses )
+			.data('context', thisDrawerContext.toUpperCase() )
+			.show()
+		;
+		$('.use_address', $thisDrawer).text( $thisDrawer.data('button') );
+	});
+	$(document).on('refresh', ".address_filmstrip", function(e){
+		var $thisDrawer = $(this).closest('.address_drawer');
+		var thisDrawerContext = $thisDrawer.data('context');
+		var hideUse = $thisDrawer.data('hide_use');
+		var $manage_elements = ($thisDrawer.closest('.panel_box').data('manage_type')&&$thisDrawer.closest('.panel_box').data('manage_type')!="") ? "&MANAGE_TYPE="+$thisDrawer.closest('.panel_box').data('manage_type') : "";
+		$manage_elements += ($thisDrawer.closest('.panel_box').data('manage_branch')&&$thisDrawer.closest('.panel_box').data('manage_branch')!="") ? "&MANAGE_BRANCH="+$thisDrawer.closest('.panel_box').data('manage_branch') : "";
+		$manage_elements += ($thisDrawer.closest('.panel_box').data('manage_contact')&&$thisDrawer.closest('.panel_box').data('manage_contact')!="") ? "&MANAGE_CONTACT="+$thisDrawer.closest('.panel_box').data('manage_contact') : "";
+		$(this).load('ajax_jquery.iml', 'mdl=system/2011/account/address.mdl&CONTEXT=' + thisDrawerContext + '&HIDE_USE='+hideUse+$manage_elements, function(){
+			if( typeof $thisDrawer.data('button') !== 'undefined' && $thisDrawer.data('button') != '' ) {
+				$thisDrawer.find('.use_address').text( $thisDrawer.data('button') );
+			}
+			var $inContextAddresses = $( 'section.address.saved.for_'+thisDrawerContext, $thisDrawer );
+			adjustAddressFilmstrip( $thisDrawer, $inContextAddresses.length );
+		});
+	})
+	.on('click', ".address_drawer .close-address_drawer", function(e){
+		e.preventDefault();
+		var $addressDrawer = $(this).closest('.address_drawer');
+		$addressDrawer.css('min-height','0px');
+		$addressDrawer.slideUp();
+	})
+	
+	.on('keyup', ".address_drawer .address_search_box", function(e){
+		$('.address_search_none', $thisDrawer).hide();
+		searchValue = $(this).val();
+		$thisDrawer = $(this).closest('.address_drawer');
+		$( 'section.address.saved', $thisDrawer )
+			.addClass('not_in_search')
+			.each(function(index){
+				if( $(this).text().toLowerCase().indexOf( searchValue.toLowerCase() ) > -1 ) {
+					$(this).removeClass('not_in_search');
+				}
+			})
+		;
+		itemsInSearch = $( 'section.address.saved:visible', $thisDrawer ).length;
+		adjustAddressFilmstrip( $thisDrawer, itemsInSearch );
+		if ( itemsInSearch == 0 ) {
+			$('.address_search_none', $thisDrawer).show();
+		}
+	});
+	function setAddressReel() {
+		if ( $('.address_reel').length > 0 ) {
+			$('.address_reel').kinetic({
+				y:false,
+				slowdown:.7,
+				maxvelocity:20,
+				moved: 	function(){
+									// Reached left edge of addresses:
+									if (this.scrollLeft() == 0) {
+										this.siblings('.address_control.left').addClass('inactive');
+										this.kinetic('stop');
+									}
+									else this.siblings('.address_control.left').removeClass('inactive');
+									// Reached right edge of addresses:
+									if (this.scrollLeft() >= this.data('scroll_width')) {
+										this.siblings('.address_control.right').addClass('inactive');
+										this.siblings('.close-address_drawer a').css('right',15);
+										this.kinetic('stop');
+									}
+									else {
+										this.siblings('.address_control.right').removeClass('inactive');
+										this.siblings('.close-address_drawer a').css('right',46);
+									}
+								},
+				filterTarget: function(target){
+					return !$(target).is(':input');
+				}
+			});
+			$('#profile .billing.address_drawer,.manage-tools .billing.address_drawer').trigger('open');
+			$('#profile .shipping.address_drawer,.manage-tools .shipping.address_drawer').trigger('open');
+		}
+	}
+	$(document).ready( function(){
+		setAddressReel();
+	});
+	$(document)
+		.on('mousedown touchstart', ".address_drawer .address_control.left", function(e){
+			e.preventDefault();
+			var $thisReel = $(this).siblings('.address_reel');
+			$thisReel.kinetic('start', { velocity: -10 });
+			$(this).data('speedUp', setTimeout( function(){ $thisReel.kinetic('start', { velocity: -10 }); }, 750 ) );
+		})
+		.on('mousedown touchstart', ".address_drawer .address_control.right", function(e){
+			e.preventDefault();
+			var $thisReel = $(this).siblings('.address_reel');
+			$thisReel.kinetic('start', { velocity: 10 });
+			$(this).data('speedUp', setTimeout( function(){ $thisReel.kinetic('start', { velocity: 10 }); }, 750 ) );
+		})
+		.on('mouseup touchend mouseout', ".address_drawer .address_control", function(e){
+			window.clearTimeout( $(this).data('speedUp') );
+			var $thisReel = $(this).siblings('.address_reel');
+			$thisReel.kinetic('end');
+		})
+		.on('click','.address_drawer .address_control.left, .address_drawer .address_control.right', function(e) {
+			e.preventDefault();
+		})
+	;
+
+	$(document)
+	.on('click', 'a[data-role=create_address]', function(e){
+		e.preventDefault();
+		$thisPanel = $(this).closest('.panel_box');
+		thisPanelContext = $thisPanel.data('context');
+		$thisReel = $thisPanel.find('.address_reel');
+		$thisFilmstrip = $thisReel.find('.address_filmstrip');
+			$thisFilmstrip.width( function(){ return $(this).width()+260 } );
+			$thisReel.data('scroll_width', $thisFilmstrip.width() - $thisReel.width() );
+			$('.address_control', $thisPanel).show();
+			$thisReel.kinetic('start', { velocity: 30 });
+		$sampleAddress = $thisFilmstrip.children('section.saved.address:visible').first();
+		$newAddress = $sampleAddress.clone();
+		var $manage_elements = ($thisPanel.data('manage_type')&&$thisPanel.data('manage_type')!="") ? "&MANAGE_TYPE="+$thisDrawer.closest('.panel_box').data('manage_type') : "";
+		$manage_elements += ($thisPanel.data('manage_branch')&&$thisPanel.data('manage_branch')!="") ? "&MANAGE_BRANCH="+$thisDrawer.closest('.panel_box').data('manage_branch') : "";
+		$manage_elements += ($thisPanel.data('manage_contact')&&$thisPanel.data('manage_contact')!="") ? "&MANAGE_CONTACT="+$thisDrawer.closest('.panel_box').data('manage_contact') : "";
+		if ( $newAddress.length < 1 ) {
+			$thisFilmstrip.append('<section class="saved address for_' + $(this).data('context') + '" id="addressNEW"></section>');
+			$newAddress = $('#addressNEW');
+		}
+		$newAddress.load('ajax_jquery.iml?mdl=system/2011/account/address_create_form.mdl&CONTEXT='+thisPanelContext+$manage_elements, function(){
+			$newAddress.appendTo( $thisFilmstrip );
+			$('div', $newAddress).slideUp();
+			$('form.address_form', $newAddress).slideDown();
+			$('a[data-role=create_address]').fadeOut();
+			$('input, textarea').placeholder();
+		});
+	})
+	.on('click', '.address_filmstrip a[data-role=edit_address]', function(e){
+		e.preventDefault();
+		var $thisAddress = $(this).closest('section.saved.address');
+		$('div', $thisAddress).slideUp();
+		$('form.address_form', $thisAddress).slideDown();
+	})
+	.on('success', ".address_filmstrip form[data-role=create_address]", function(e){
+		var $thisAddress = $(this).closest('section.saved.address');
+		$thisAddress.load('ajax_jquery.iml', 'mdl=system/2011/account/address.mdl&HIDE_USE=1&ADDR_Address_ID='+e.Address_ID, function(){
+			$('a[data-role=create_address]').fadeIn(function(){
+				$('.address_filmstrip').trigger('refresh');
+			});
+		});
+	})
+	.on('success', ".address_filmstrip form[data-role=edit_address]", function(e){
+		var $thisAddress = $(this).closest('section.saved.address');
+		$thisAddress.removeClass('for_billing for_shipping');
+		if ( $('input[name=ADDR_Billing]', $(this) ).prop('checked') ) $thisAddress.addClass('for_billing');
+		if ( $('input[name=ADDR_Shipping]', $(this) ).prop('checked') ) $thisAddress.addClass('for_shipping');
+		$(this)
+			.slideUp()
+			.find('input[type!=submit]')
+			.each(function(index){
+				$( '.' + $(this).prop('name'), $thisAddress ).text( $(this).val() );
+			});
+		$('div', $thisAddress).slideDown(function(){
+			$('.address_filmstrip').trigger('refresh');
+		});
+	})
+	.on('click', ".address_filmstrip a[data-role=cancel-create_address]", function(e){
+		e.preventDefault();
+		var $thisAddress = $(this).closest('section.saved.address');
+		$thisAddress.slideUp(function(){
+			$(this).remove();
+			$('a[data-role=create_address]').fadeIn();
+		});
+	})
+	.on('click', ".address_filmstrip a[data-role=cancel-edit_address]", function(e){
+		e.preventDefault();
+		var $thisAddress = $(this).closest('section.saved.address');
+		$('form.address_form', $thisAddress).slideUp();
+		$('div', $thisAddress).slideDown();
+	})
+	.on('click', ".address_filmstrip a[data-role=delete_address]", function(e){
+		e.preventDefault();
+		var $thisAddress = $(this).closest('section.saved.address');
+		$('form.address_delete_form', $thisAddress).slideDown();
+	})
+	.on('click', ".address_filmstrip a[data-role=cancel-delete_address]", function(e){
+		e.preventDefault();
+		var $thisAddress = $(this).closest('section.saved.address');
+		$('form.address_delete_form', $thisAddress).slideUp();
+	})
+	
+	.on('success', ".address_filmstrip .address_delete_form", function(){
+		var $thisAddress = $(this).closest('section.saved.address');
+		$thisAddress
+			.css({
+				overflow: 'hidden',
+				whiteSpace: 'nowrap'
+			})
+			.animate({width:0}, function(){
+				$('.address_filmstrip').trigger('refresh');
+			})
+	});	
+	
+	
+	/*********** Password Strength Indicator *************/
+$(document).ready(function(){
+	if($('#reset-form input[type=password]').length>0) {
+		$('#reset-form input[type=password]').pStrength({
+			'bind': 'keyup change',
+			'changeBackground': false,
+			'backgrounds'     : [['#cc0000', '#FFF'], ['#cc3333', '#FFF'], ['#cc6666', '#FFF'], ['#ff9999', '#FFF'],
+													['#e0941c', '#FFF'], ['#e8a53a', '#FFF'], ['#eab259', '#FFF'], ['#efd09e', '#FFF'],
+													['#ccffcc', '#FFF'], ['#66cc66', '#FFF'], ['#339933', '#FFF'], ['#006600', '#FFF'], ['#105610', '#FFF']],
+			'passwordValidFrom': 60, // 60%
+			'onValidatePassword': function(percentage) { },
+			'onPasswordStrengthChanged' : function(passwordStrength, percentage) {
+				var backgrounds=[['#cc0000', 'weak'], ['#cc3333', 'weak'], ['#cc6666', 'weak'], ['#ff9999', 'weak'],
+													['#e0941c', 'medium'], ['#e8a53a', 'medium'], ['#eab259', 'medium'], ['#efd09e', 'medium'],
+													['#66cc66', 'strong'], ['#44aa44', 'strong'], ['#339933', 'strong'], ['#006600', 'strong'], ['#105610', 'strong']];
+			var $password=$('input[name=new_Password]');
+			var $confirm=$('input[name=confirm-new_Password]');
+				if($(this).val()!="") {
+					$(this).closest('div').find('span').css({"background-color":backgrounds[passwordStrength][0]}).css({"width":(percentage*198/100)+"px"});
+					$(this).closest('div').attr('data-content',backgrounds[passwordStrength][1]+": "+percentage+"%");
+					$(this).closest('div').find('span').attr('title',backgrounds[passwordStrength][1]+": "+percentage+"%");
+					//$(this).closest('div').css({"color":backgrounds[passwordStrength][0]});
+					if($password.val()==$confirm.val()) {
+						$confirm.closest('div').removeClass('unmatched').addClass('matched').attr('title','passwords match');
+						$('#reset-form').find('a.medium.green.button').removeClass('inactive');
+					} else {
+						$confirm.closest('div').removeClass('matched unmatched').attr('title','');
+						if($confirm.val()!="") $confirm.closest('div').addClass('unmatched').attr('title','passwords don\'t match');
+						$('#reset-form').find('a.medium.green.button').addClass('inactive');
+					}
+				} else {
+					$(this).closest('div').attr('data-content','Strength');
+					$(this).closest('div').find('span').css({"background-color":"transparent"}).css({"width":"0"});
+					$(this).closest('div').find('span').attr('title','');
+					$confirm.closest('div').removeClass('matched unmatched').attr('title','');
+					if($confirm.val()!="") $confirm.closest('div').addClass('unmatched').attr('title','passwords don\'t match');
+					$('#reset-form').find('a.medium.green.button').addClass('inactive');
+				}
+			}
+		});
+	}
+	$('#reset-form').off('click','a.button').on('click','a.button',function(e) {
+		e.preventDefault();
+		var $password=$('input[name=new_Password]');
+		var $confirm=$('input[name=confirm-new_Password]');
+		if($password.val()=="") $password.addClass('msg-invalid').focus();
+		else if($confirm=="") $confirm.addClass('msg-invalid').focus();
+		else if($password.val()!=$confirm.val()) $confirm.addClass('msg-no_match').focus();
+		else {
+			var data=$('#reset-form').find(':input').serializeArray();
+			$.post('json.iml',data,function(rdata) {
+				if(rdata.status=="success") $('#reset-form').trigger('success');
+				else {
+					$errorMSG = $('#error-reset');
+					if (rdata.error_msg) { $( '.error-message', $errorMSG ).text(e.error_msg) };
+					$errorMSG.slideDown();
+				}
+			},'json');
+		}
+	});
+	$('#reset-form').on('success',function() {
+		$('.ecommerce').fadeTo(400,0.2);
+			Boxy.alert(
+				"<p>Your new password has been saved. Please log in to continue.</p>",
+				function(){},
+				{
+					title: "New Password Saved",
+					hideFade:false,
+					hideShrink:'',
+					afterShow:new Function( 'formatBoxy()' ),
+					afterHide:function() { window.location.replace('account/'); }
+				}
+			);
+	});
+	$('a.newPasswordRequest').on('click',function(e) {
+		e.preventDefault();
+		$('#forgot-password-link a').trigger('click');
+		$('section.register').fadeTo(400,0.4);
+		$('p.error-msg.password-reset').slideUp();
+		$('body,html,document').animate({ scrollTop: parseInt($('section.login').offset().top - 100) }, 1000);
+	});
+});
+	 
+	
+	/*********** Form Placeholder Fallback for older browsers ***********/
+	
+
+	/* FROM https://github.com/mathiasbynens/jquery-placeholder */
+$(document).ready(function(){
+		$('input, textarea').placeholder();
+        
+// spam filter:
+    $('form[data-spam_filter]').on('get_filter_id',function(){
+        $.post('proxy.iml', {'PROXYURL':'http://www.imlcentral.com/utilities/EmailTo/form.iml','FormID':$(this).data('spam_filter')}, function(data){
+            var eid=$(data).find('emailid').text();
+            if(eid*1>0){
+                $('form[data-spam_filter]').find('input[name="EmailID"]').remove();
+                $('form[data-spam_filter]').append('<input type="hidden" name="EmailID" value="'+eid+'" />');
+            }else{
+                $('form[data-spam_filter]').remove();
+            }
+          },"xml");            
+    });
+    
+    $('form[data-spam_filter]').on('success',function(){$(this).trigger('get_filter_id');}).filter(':eq(0)').trigger('get_filter_id');
+});
