@@ -1,0 +1,130 @@
+/*******************  BEGIN jquery.boxy.css ****************************/
+
+.boxy-wrapper { position: absolute; max-width: 100% !important; }
+.boxy-wrapper.fixed { position: fixed; }
+
+  /* Modal */
+
+.boxy-modal-blackout {
+  background-color: black;
+  height: 100%;
+  left: 0;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+}
+  /* Border */
+
+  .boxy-wrapper { empty-cells: show; }
+	.boxy-wrapper .boxy-top-left,
+	.boxy-wrapper .boxy-top-right,
+	.boxy-wrapper .boxy-bottom-right,
+	.boxy-wrapper .boxy-bottom-left { width: 10px; height: 10px; padding: 0 }
+
+	:root .boxy-wrapper .boxy-top-left { background: url('../images/boxy-nw.png'); }
+	:root .boxy-wrapper .boxy-top-right { background: url('../images/boxy-ne.png'); }
+	:root .boxy-wrapper .boxy-bottom-right { background: url('../images/boxy-se.png'); }
+	:root .boxy-wrapper .boxy-bottom-left { background: url('../images/boxy-sw.png'); }
+
+	/* IE6-8 hacks for the border. IE7+8 should support this natively but fails in conjuction with modal blackout bg. */
+	/* NB: these must be absolute paths or URLs to your images */
+	/* .boxy-wrapper .boxy-top-left {
+		#filter:progid:DXImageTransform.Microsoft.AlphaImageLoader(src='../images/boxy-nw.png');
+		-ms-filter: "progid:DXImageTransform.Microsoft.AlphaImageLoader(src='../images/boxy-nw.png')";
+	}
+	.boxy-wrapper .boxy-top-right {
+		#filter:progid:DXImageTransform.Microsoft.AlphaImageLoader(src='../images/boxy-ne.png');
+		-ms-filter: "progid:DXImageTransform.Microsoft.AlphaImageLoader(src='../images/boxy-ne.png')";
+	}
+	.boxy-wrapper .boxy-bottom-right {
+		#filter:progid:DXImageTransform.Microsoft.AlphaImageLoader(src='../images/boxy-se.png');
+		-ms-filter: "progid:DXImageTransform.Microsoft.AlphaImageLoader(src='../images/boxy-se.png')";
+	}
+	.boxy-wrapper .boxy-bottom-left {
+		#filter:progid:DXImageTransform.Microsoft.AlphaImageLoader(src='../images/boxy-sw.png');
+		-ms-filter: "progid:DXImageTransform.Microsoft.AlphaImageLoader(src='../images/boxy-sw.png')";
+	} */
+
+	.boxy-wrapper .boxy-top,
+	.boxy-wrapper .boxy-bottom { height: 10px; background-color: black; opacity: 0.6; filter: alpha(opacity=60); padding: 0 }
+
+	.boxy-wrapper .boxy-left,
+	.boxy-wrapper .boxy-right { width: 10px; background-color: black; opacity: 0.6; filter: alpha(opacity=60); padding: 0 }
+
+	/* Title bar */
+
+	.boxy-wrapper .title-bar { background-color: black; padding: 6px; position: relative; }
+	  .boxy-wrapper .title-bar:hover { /* cursor: move; */ }
+	    .boxy-wrapper .title-bar h2 { font-size: 12px; color: white; line-height: 1; margin: 0; padding: 0; font-weight: normal; }
+	    .boxy-wrapper .title-bar .close { color: white; position: absolute; top:0; right: 6px; line-height: 1; cursor: pointer;
+          font-size: 27px !important;
+          font-weight: bold;
+          filter: alpha(opacity=20);
+          opacity: .8;
+      		text-shadow: none !important;
+          font-family: "Arial Black", sans-serif;
+          margin-top: -2px;
+          outline: none !important;
+        }
+
+	/* Content Region */
+
+	.boxy-inner { /* overflow: hidden; */ background-color: white; padding: 0 }
+	.boxy-content { padding: 15px; }
+
+	/* Question Boxes */
+
+    .boxy-wrapper .question { width: 350px; min-height: 80px; }
+    .boxy-wrapper .answers { text-align: right; }
+
+/*******************  END jquery.boxy.css ****************************/
+
+.boxy-modal-blackout {
+	opacity: 0.3 !important;
+	filter: alpha(opacity=30) !important;
+}
+.boxy-wrapper .title-bar {
+	border-color: #A6A8AB;
+	border-radius: 5px 5px 0 0;
+	border-style: solid;
+	border-width: 1px 1px 0;
+}
+.boxy-wrapper .title-bar, .boxy-wrapper .title-bar h2 {
+	padding: 0;
+	font: bold 14px/28px Arial,Helvetica,sans-serif;
+	height: 28px !important;
+	padding: 0 12px;
+}
+.opc-bg-color.gradient:after {
+	border-radius: 5px 5px 0 0;
+}
+.boxy-wrapper .title-bar .close {
+    font-size: 14px;
+    font-weight: normal;
+}
+.boxy-wrapper .boxy-inner .boxy-content {
+	font-size: 14px;
+	border-color: #A6A8AB;
+	border-style: solid;
+	border-width: 0 1px 1px;
+}
+
+	.boxy-wrapper .boxy-top-left,
+	.boxy-wrapper .boxy-top-right,
+	.boxy-wrapper .boxy-bottom-right,
+	.boxy-wrapper .boxy-bottom-left { width: 2px; height: 2px; padding: 0 }
+
+	.boxy-wrapper .boxy-top,
+	.boxy-wrapper .boxy-bottom { height: 2px; background: none transparent; }
+
+	.boxy-wrapper .boxy-left,
+	.boxy-wrapper .boxy-right { width: 2px; background: none transparent; }
+
+	:root .boxy-wrapper .boxy-top-left { background: none transparent; }
+	:root .boxy-wrapper .boxy-top-right { background: none transparent; }
+	:root .boxy-wrapper .boxy-bottom-right { background: none transparent }
+	:root .boxy-wrapper .boxy-bottom-left { background: none transparent }
+
+	.boxy-inner { background-color: transparent; box-shadow: 5px 5px 5px #555555; }
+	.boxy-inner > * { background-color: white; }

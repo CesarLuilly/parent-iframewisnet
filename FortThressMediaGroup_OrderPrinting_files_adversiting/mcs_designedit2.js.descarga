@@ -1,0 +1,818 @@
+function displayMCSDesignEditMessage (evt) {
+  mcs.log('event:', evt);
+	var allow = /^https:\/\/(([a-zA-Z0-9\-\_]+)\.){0,}mycreativeshop\.com$/.test( evt.origin );
+	if( ! allow ) allow = evt.origin === window.location.origin;
+	//if( ! allow && typeof getOdyParentMessage !== "function" ) return;
+	if( evt.data && evt.data.type ) {
+    mcs.log('event captured:', evt);
+    switch( evt.data.type ) {
+      case "editor_frameReady": // the frame is in place -- rename the "print" button 
+        var data = { 
+          type: "set_finalizebtn", 
+          data: 'Continue'
+        };
+				if(mcs.activeProject && $('input[name="EDIT_Job_ID"]').length && ! isNaN( parseInt( $('input[name="EDIT_Job_ID"]').val() ) ) && parseInt( $('input[name="EDIT_Job_ID"]').val() ) > 0) {
+					data.data = "Return to Order Form";
+				}
+        window.frames['mcs_frame'].postMessage(data, "*");
+        break;
+      case "new_project": // load a new project for editing
+        var template = evt.data.data;
+        var data = { layoutId: template };
+        var cid = parseInt( PREFS.user_Contact_ID );
+        if( ( isNaN( cid ) || cid == 0 ) && ! mcs.userId ) {
+          Boxy.load( 'ajax_jquery.iml?mdl=' + PREFS.OPC_Version_Path + 'designedit/login_panel.mdl&template=' + template, {
+              title: 'Welcome to DesignEdit!',
+              closeable: true,
+              modal: true,
+              cache: true,
+              hideFade: true,
+              hideShrink: '',
+              afterShow: function () {
+                formatBoxy();
+                $('body').addClass('login-popped');
+                this.modalBlackout.css('z-index',11000000);
+                this.boxy.css('z-index',11000001 );
+                mcs.loginModal = this;
+                window.setTimeout( function() {
+                  $('#designedit_login #accountCheck' ).blur();
+                }, 600 );
+              },
+              afterHide: function() {
+                $('body').removeClass('login-popped');
+                $(window).scrollTop(0);
+              },
+              unloadOnHide: true,
+              beforeUnload: function() {
+                mcs.loginModal = false;
+              }
+          });
+        } else {
+          mcs.editProject( data );
+        }
+        break;
+      case "editor_close": // the editor was closed
+        mcs.activeProject = false;
+        mcs.layoutId = null;
+        mcs.editorOrderData = null;
+        $( '#mcsTemplateFrame' ).addClass( 'editor loading' ).removeAttr('style');
+        window.location.href = '/account/';
+        break;
+      case "editor_delete": // the user clicked to delete the project 
+        var data = {
+          mdl: PREFS.OPC_Version_Path+"designedit/mcs_call.mdl",
+          REQ_DATA: JSON.stringify( {
+            Endpoint: '/project/delete',
+            Payload: {
+              projectId: mcs.activeProject.id,
+            }
+          })
+        };
+        mcs.activeProject = false;
+        mcs.layoutId = null;
+        mcs.editorOrderData = null;
+        var path = window.location.pathname.replace( /\/[0-9]+/g, '' );
+        $( '#mcsTemplateFrame' ).addClass( 'loading' ).removeAttr('style').find( 'iframe' ).remove();
+        $.post( 'json.iml', data, function( rdata ) {
+          /* do a full-on redirect here because otherwise the iframe will run an onbeforeunload event */
+          window.location.href = path;
+        }, 'json' );
+        break;
+      case "editor_order": // the user clicked the 'continue' button 
+        if( evt.data.data.documentDirty ) { // there are unsaved changes -- prompt a save 
+          var container = $( '#mcsTemplateFrame' );
+          container.removeClass('loading');
+          if( ! evt.data.data.print.thumbUrl ) { // this project hasn't been saved at all -- we can't let them continue 
+            if( mcs.closeEditorPushed ) { // confirm that the project will be deleted 
+              Boxy.confirm( "Are you sure you want to cancel this project? Your project will be deleted, and any work you've done on it will be lost. Would you like to proceed anyway?", function() {
+                container.addClass('loading').removeAttr('style');
+                window.postMessage({ type: 'editor_delete' }, "*");
+              }, 
+              { title: 'Alert!', 
+                afterShow: function() { 
+                  this.modalBlackout.css('z-index',11000000);
+                  this.boxy.css('z-index',11000001 ); 
+                }
+              });
+            } else { // pop up an alert and don't let them proceed 
+              Boxy.alert("Your project has not yet been saved. Please save your project before continuing.", function() { var a = 0; },
+              {            
+                afterShow: function() { 
+                  this.modalBlackout.css('z-index',11000000);
+                  this.boxy.css('z-index',11000001 ); 
+                }
+              });
+            }
+          } else { // we can give them a choice to save or discard their changes
+            Boxy.confirm("You have unsaved changes. If you continue now, these changes will be lost. Are you sure you want to proceed?", function() {
+              var contactId = parseInt( PREFS.user_Contact_ID );
+              if( isNaN( contactId ) || ! contactId ) {
+                mcs.editorOrderAfterLogin( evt.data.data );
+              } else {
+                mcs.editorOrder( evt.data.data );
+              }
+            }, 
+            { title: 'Alert!', 
+              afterShow: function() { 
+                this.modalBlackout.css('z-index',11000000);
+                this.boxy.css('z-index',11000001 ); 
+              }
+            });
+          }
+        } else { // the project is saved and up to date
+          var contactId = parseInt( PREFS.user_Contact_ID );
+          if( isNaN( contactId ) || ! contactId ) {
+            mcs.editorOrderAfterLogin( evt.data.data );
+          } else {
+            mcs.editorOrder( evt.data.data );
+          }
+        }
+        mcs.closeEditorPushed = false;
+        break;
+      case "editor_goAccount": // the user clicked to close the editor and return to their account page 
+        Boxy.confirm( "Are you sure you want to close the editor and go to your account? Any unsaved changes you have made will be lost.", function() {
+          $( '#mcsTemplateFrame' ).addClass( 'loading' ).removeAttr('style').find( 'iframe' ).remove();
+          window.location.href = "account/";
+        },{
+          afterShow: function() {
+            this.modalBlackout.css('z-index',11000000);
+            this.boxy.css('z-index',11000001 );
+          }
+        });
+        break;
+		} // close switch 
+	} else if( evt.data && typeof evt.data === "string" && evt.data.substr(0,13) === "[iFrameSizer]" && evt.origin && /^http(s)?:\/\/(www.)?mycreativeshop.com/.test( evt.origin ) ) {
+    var container = $('div#mcsTemplateFrame');
+    if( mcs.frameSource && /^http(s)?:\/\/(www.)?mycreativeshop.com\/embed\/templates/.test( mcs.frameSource ) ) {
+      var data = evt.data.replace(/^\[iFrameSizer\]/,'').split(':');
+      var height = null;
+      for( var i = 0; i < data.length; i++ ) {
+        var val = parseFloat( data[i] );
+        if( val && ! isNaN( val ) && val === data[i]*1 ) {
+          height = val;
+          break;
+        }
+      }
+      if( height && ! container.is('.loading') && ! container.is( '.editor' ) ) {
+        container.css({'height':(height+10)+"px"});
+      } else {
+        container.removeAttr('style');
+      }
+    } else {
+      container.removeAttr('style');
+    }
+  }
+  if( typeof getOdyParentMessage === "function" ) getOdyParentMessage( evt );
+}
+
+
+if (window.addEventListener) {
+  // For standards-compliant web browsers
+  window.addEventListener("message", displayMCSDesignEditMessage, false);
+}
+else {
+  window.attachEvent("onmessage", displayMCSDesignEditMessage);
+}
+
+
+/* mcs object */
+
+var mcs = {
+	activeProject: false,
+	onFrameLoad: false,
+	loginModal: false,
+	override: false,
+	loadTime: false,
+	showDockable: false,
+  closeEditorPushed: false,
+	log: function( data, data2 ) {
+		if( console ) {
+      if( data2 ) console.log( data, data2 );
+			else console.log( data );
+		}
+	},
+  userId: null,
+  editorOrderData: null,
+  layoutId: null,
+  resize: null,
+  frameSource: null
+};
+
+mcs.hasMi4pFrame = function() {
+  if( typeof mi4pFrame === "object" && mi4pFrame ) return true;
+  return false;
+};
+
+mcs.frameLoaded = function() {
+	if( mcs.onFrameLoad && typeof mcs.onFrameLoad === "function" ) {
+		mcs.onFrameLoad();
+	} else {
+		mcs.log( 'loaded' );
+	}
+  if( ! mcs.resize && mcs.frameSource && /^http(s)?:\/\/(www.)?mycreativeshop.com\/embed\/templates/.test( mcs.frameSource ) ) {
+    mcs.resize = iFrameResize({
+      autoResize: false,
+      sizeHeight: false,
+      scrolling: true
+    },$('iframe[name=mcs_frame]')[0]);
+  }
+	mcs.onFrameLoad = false;
+	$( window ).resize();
+};
+
+mcs.editorOrderAfterLogin = function( data ) {
+  mcs.editorOrderData = data;
+  var container = $( '#mcsTemplateFrame' );
+  container.removeClass('loading');
+  Boxy.load( 'ajax_jquery.iml?mdl=' + PREFS.OPC_Version_Path + 'designedit/createAccountPanel.mdl', {
+      title: 'Create an Account to Continue',
+      closeable: true,
+      modal: true,
+      cache: true,
+      hideFade: true,
+      hideShrink: '',
+      afterShow: function () {
+        formatBoxy();
+        $('body').addClass('login-popped');
+        this.modalBlackout.css('z-index',11000000);
+        this.boxy.css('z-index',11000001 );
+        mcs.loginModal = this;
+        window.setTimeout( function() {
+          $('#designedit_login #accountCheck' ).blur();
+        }, 600 );
+      },
+      afterHide: function() {
+        $('body').removeClass('login-popped');
+        $('#mcsTemplateFrame').removeClass('loading');
+        $(window).scrollTop(0);
+      },
+      unloadOnHide: true,
+      beforeUnload: function() {
+        mcs.loginModal = false;
+      }
+  });
+};
+
+mcs.editorOrder = function( data ) {
+	mcs.editorOrderData = null;
+  mcs.layoutId = null;
+  var base = data.print;
+  var imgs = data.images;
+  if( !imgs ) imgs = [];
+  base.unpurchasedPhotos = imgs.length;
+  base.userId = data.userId;
+  var orderId = parseInt( $( '#mcsTemplateFrame[data-order_id]' ).data( 'order_id' ) );
+  if( isNaN( orderId ) ) orderId = 0;
+  var postData = {
+    mdl: PREFS.OPC_Version_Path+"designedit/mcs_call.mdl",
+    REQ_DATA: JSON.stringify( {
+      Endpoint: '/project/print',
+      Payload: {
+        printData: base,
+        orderId: orderId
+      }
+    })
+  };
+  $.post( 'json.iml', postData, function( rdata ) {
+    if( rdata && rdata.project ) {
+       mcs.activeProject = rdata.project;
+      if( $( 'input[name="EDIT_Job_ID"]' ).length > 0 ) {
+        // we're already editing a job -- update the hidden values as needed
+        var container = $( '#mcsTemplateFrame' );
+        container.find( 'iframe' ).remove();
+        container.append( $( '<iframe name="mcs_frame" src="blank.html" frameborder="0" onload="mcs.frameLoaded();"></iframe>' ) );
+        container.find( 'iframe' ).attr( 'src', 'blank.html' );
+        mcs.frameSource = "blank.html";
+        mcs.onFrameLoad = function() {
+          var container = $( '#mcsTemplateFrame' );
+          mcs.loadTime = new Date().getUnixTime();
+          container.hide().removeClass( 'loading editor' );
+          if( mcs.hasMi4pFrame() && mi4pFrame.exitFullScreen ) mi4pFrame.exitFullScreen();
+          container.closest( 'body' ).removeClass( 'noscroll' );
+          for( var i = 0; i < rdata.elements.length; i++ ) {
+            var el = rdata.elements[i];
+            var $el = $( ':input[name="step2Attribute_Value_' + el.Element_ID + '"]' );
+            if( $el.length > 0 ) {
+              $el.each( function() {
+                if( el.Type == "name" ) {
+                  $(this).val( el.Value );
+                  $el.val( el.Value );
+                } else if( el.Type == "sides" ) {
+                  if( $(this).data( 'option_id' ) == el.Option_ID || ( el.Option_ID == 0 && el.Value == $(this).val() ) ) {
+                    $(this).prop( 'checked', 'checked' ).change().click().trigger( 'price_update' );
+                  }
+                }
+              });
+            }
+          }
+          $( 'output#proj_name' ).text( rdata.project.name );
+          $( 'output#proj_sides' ).text( rdata.project.sides );
+          $( '#mcsPreviewImage' ).attr( 'src', 'template_image.iml?mdl=system/2011/designedit/preview_image.mdl&projectId=' + mcs.activeProject.id + '&timeStamp=' + mcs.loadTime );
+          var $imgs = $( 'input[type="hidden"][name="TEMPLATE_Images"]' );
+          if( $imgs.length > 0 ) {
+            var ct = rdata.project.unpurchasedPhotos;
+            if( ! ct ) ct = 0;
+            $imgs.val( ct );
+            var $ife = $( 'tr.DE_Image_Fee' );
+            if( $ife.length > 0 ) {
+              $ife.find( 'output' ).text( ct + '.00' );
+              /* if( ct == 0 ) $ife.hide();
+              else $ife.show(); */
+            }
+            if( InstantPricingList && InstantPricingList.length==1 ) {
+              var cat = InstantPricingList[0].data.categories[InstantPricingList[0].data.categories.length-1];
+              if( cat.className && cat.className == "DE_Image_Fee" ) {
+                cat.question[0].pricing[0].setupCharge = ct;
+                InstantPricingList[0].processQuote();
+              }
+            }
+          }
+          $(':input[isQty]').change();
+        };
+      } else { 
+        var container = $( '#mcsTemplateFrame' );
+        container.addClass( 'loading' ).removeAttr('style');
+        container.find( 'iframe' ).remove();
+        window.location.href = PREFS.WEBBASE + rdata.edit_url;
+      }
+    } else if( rdata && rdata.error ) {
+      $( '#mcsTemplateFrame' ).removeClass( 'loading' );
+      Boxy.alert( '<p class="mcs">Your project has not yet been saved. Click the <span>Save</span> button inside the editor, then try again.</p>', function() { var a = 0; }, 
+      {
+        afterShow: function() {
+          this.modalBlackout.css('z-index',11000000);
+          this.boxy.css('z-index',11000001 );
+        }
+      });
+    }
+  }, 'json' );
+};
+
+mcs.addressPush = function( path ) {
+	var destination = PREFS.WEBBASE + path;
+	if( history.pushState ) { // modern browsers
+		history.pushState( null, '', destination );
+	}
+};
+
+mcs.showLogin = function() {
+	var $form = $( '#designedit_login #accountForm' );
+	if( $form.is(':visible')) {
+			return false;
+	}
+	$('#designedit_login #accountInfo').slideDown(function () {
+		var accountInfoBottom = $(this).offset().top + $(this).outerHeight();
+		var windowHeight = $(window).height();
+		var windowBottom = $(window).scrollTop() + windowHeight;
+		if (accountInfoBottom > windowBottom) {
+				$('body,html,document').animate({scrollTop: accountInfoBottom - windowHeight + extra}, 1000);
+		}
+		$('#designedit_login #accountInfo').find('input[type=text],input[type=email]').eq(0).focus();
+	});
+	$('#accountInfo a.button').hide().removeClass('active');
+	var command = $(this).prop('id').split('-')[1];
+	$('#' + command).show().addClass('active');
+};
+
+mcs.showLoginForm = function() {
+  $('div#firstTimeUser,h4#showLoginForm').fadeOut( function() {
+    $('div#loginInfo').show();
+  });
+};
+
+mcs.returnToStart = function() {
+  $('.sent-password,#forgot-password-form,#error-email,#error-password').hide();
+  $('#login-form,#forgot-password-link').show();
+  $('div#loginInfo').hide();
+  var elem = document.getElementById("designedit_login");
+  if (elem.style.removeProperty) {
+    elem.style.removeProperty('height');
+  } else {
+    elem.style.removeAttribute('height');
+  }
+  $('div#firstTimeUser,h4#showLoginForm').fadeIn();
+};
+
+mcs.continueAsGuest = function(layoutId) {
+  mcs.editProject( { layoutId: layoutId } );
+  mcs.loginModal.hideAndUnload();
+};
+
+mcs.editProject = function( data, IS_JOB ) {
+	var reqData = false;
+	var projectId = false;
+	var layoutId = false;
+  mcs.layoutId = null;
+	if( mcs.activeProject && !data ) projectId = mcs.activeProject.id;
+  mcs.closeEditorPushed = false;
+	if( data ) {
+		var layoutId = data.layoutId;
+		var projectId = data.projectId;
+	}
+	if( layoutId ) {
+    mcs.layoutId = layoutId;
+		reqData = JSON.stringify( {
+			Endpoint: '/project/create',
+			Payload: {
+				layoutId: layoutId
+			}
+		});
+	} else if( projectId ) {
+		reqData = JSON.stringify( {
+			Endpoint: '/project/get',
+			Payload: {
+				projectId: projectId
+			}
+		});
+	}
+	if( reqData ) {
+		var data = {
+			mdl: PREFS.OPC_Version_Path + 'designedit/mcs_call.mdl',
+			REQ_DATA: reqData
+		};
+		var container = $( '#mcsTemplateFrame' );
+		container.addClass( 'loading editor' ).removeAttr('style');
+    if( mcs.hasMi4pFrame() && mi4pFrame.enterFullScreen ) mi4pFrame.enterFullScreen();
+		container.closest( 'body' ).addClass( 'noscroll' );
+		var path_lc = window.location.href.toLowerCase();
+		var base_lc = PREFS.WEBBASE.toLowerCase();
+		var path_raw = path_lc.replace( base_lc, '' ).split( '/' );
+		var path = [];
+		for( var i = 0; i < path_raw.length; i++ ) {
+			var p = path_raw[i].trim();
+			if( p != "" ) path.push( p );
+		}
+		$(window).resize();
+		$.post( 'json.iml', data, function( rdata ) {
+			if( rdata && rdata.project && rdata.editUrl && rdata.editUrl != "" ) {
+				mcs.activeProject = rdata.project;
+        container.attr('data-mode', rdata.project.mode);
+				container.find( '>iframe' ).prop( 'src', rdata.editUrl );
+        mcs.frameSource = rdata.editUrl;
+				mcs.onFrameLoad = function() {
+					container.removeClass( 'loading' );
+          $('.mcs_topbar').css({'width':'100%'});
+          window.setTimeout( function() {
+            $('.mcs_topbar').removeAttr('style');
+          }, 2000 );
+					mcs.loadTime = new Date().getUnixTime();
+				};
+				if( path.length > 1 && ! IS_JOB ) mcs.addressPush( 'design-online/' + path[1] + '/' + rdata.project.id );
+        if( rdata.userId ) {
+          mcs.userId = rdata.userId;
+        }
+			} else {
+				container.removeClass( 'loading editor' );
+				container.closest( 'body' ).removeClass( 'noscroll' );
+        if( mcs.hasMi4pFrame() && mi4pFrame.exitFullScreen ) mi4pFrame.exitFullScreen();
+				if( ! rdata ) rdata = {};
+				if( ! rdata.hasOwnProperty( 'error' ) ) {
+					rdata.error = 'An error occurred. Please try again.';
+				}
+				if( path.length > 1 ) mcs.addressPush( 'design-online/' + path[1] );
+				mcs.log( rdata );
+				alert( rdata.error );
+			}
+			$(window).resize();
+		}, 'json' );
+	}
+};
+
+mcs.updateProject = function() {
+	$( '#mcsTemplateFrame' ).addClass( 'loading' ).removeAttr('style');
+	var data = { type: "get_order_data", data: null }
+	window.frames['mcs_frame'].postMessage(data, "*");
+};
+
+mcs.cancelEditor = function() {
+	Boxy.confirm( "Are you sure you want to cancel this project? Your project will be deleted, and any work you've done on it will be lost. Would you like to proceed anyway?", function() {
+    var container = $( '#mcsTemplateFrame' );
+    container.addClass('loading').removeAttr('style');
+		window.postMessage({ type: 'editor_delete' }, "*");
+	}, 
+	{ title: 'Alert!', 
+		afterShow: function() { 
+			this.modalBlackout.css('z-index',11000000);
+			this.boxy.css('z-index',11000001 ); 
+		}
+	});
+};
+
+mcs.logInAndStartOver = function() {
+  mcs.activeProject = false;
+  $( '#mcsTemplateFrame' ).addClass( 'loading' ).removeAttr('style').find( 'iframe' ).attr('src','blank.html');
+  mcs.frameSource = "blank.html";
+  if( mcs.editorOrderData && mcs.editorOrderData.print && mcs.editorOrderData.print.projectId ) {
+    var data = {
+      mdl: PREFS.OPC_Version_Path+"designedit/mcs_call.mdl",
+      REQ_DATA: JSON.stringify( {
+        Endpoint: '/project/delete',
+        Payload: {
+          projectId: mcs.editorOrderData.print.projectId
+        }
+      })
+    };
+    mcs.editorOrderData = null;
+    $.post( 'json.iml', data, function( rdata ) {
+      $('#designedit_createAccountPanel').find('#accountForm').find('input[name=DESIGNEDIT_RESTART]').val("1");
+      $('#designedit_createAccountPanel').find('#accountForm').submit();
+    }, 'json');
+  } else {
+    $('#designedit_createAccountPanel').find('#accountForm').find('input[name=DESIGNEDIT_RESTART]').val("1");
+    $('#designedit_createAccountPanel').find('#accountForm').submit();
+  }
+};
+
+/* document events */
+var STOP_INFINITE_LOOP=false; // possible Chrome bug related to the 'blur' event
+
+$(document)
+	
+	.on( 'click', '#mcsTemplateFrame a#closeEditor', function(e) {
+		e.preventDefault();
+    mcs.closeEditorPushed = true;
+		mcs.updateProject();
+	})
+  
+  .on( 'click', '#mcsTemplateFrame a#cancelEditor', function(e) {
+		e.preventDefault();
+		mcs.cancelEditor();
+	})	
+	
+	.on( 'click', '#mcsTemplateFrame a.fa-chevron-right', function(e) {
+		e.preventDefault();
+		mcs.updateProject();
+	})
+	
+	.on( 'click', '#proj_details #edit_template', function(e) {
+		e.preventDefault();
+		var container = $( '#mcsTemplateFrame' );
+		var projectId = $(this).closest( '#proj_details' ).data( 'id' );
+		if( container.length > 0 && projectId ) {
+			mcs.showDockable = $( '#dockable:visible' ).length > 0;
+			if( mcs.showDockable ) $( '#dockable' ).hide();
+			container.show().addClass( 'editor loading' ).removeAttr('style');
+      if( mcs.hasMi4pFrame() && mi4pFrame.enterFullScreen ) mi4pFrame.enterFullScreen();
+			mcs.editProject( { projectId: projectId }, true );
+		}
+	})
+	
+	
+	/** log in functions **/
+	.on('click', "#designedit_login a[id|=login]", function (e) {
+		e.preventDefault();
+		mcs.showLogin();
+	})
+  .on( 'click', 'h4#showLoginForm', function(e) {
+    mcs.showLoginForm();
+  })
+  .on( 'click', '#returnToStart', function(e) {
+    mcs.returnToStart();
+  })
+  .on( 'click', '#continueAsGuest', function(e) {
+		var template = $(this).closest( '[data-template]' ).data( 'template' );
+		Boxy.confirm( "<h4>Please Read and Confirm</h4>By clicking OK below, you acknowledge that you do not currently have an account in our system. If you do have an account, CANCEL and log in instead. If you try to log in to an existing account after editing this template, you will not be able to do so. Any work you do to personalize the project will be LOST.", function() {
+			mcs.continueAsGuest(template);
+		},
+		{ title: 'Important', 
+			afterShow: function() { 
+				this.modalBlackout.css('z-index',11000002);
+				this.boxy.css('z-index',11000003 );
+        this.boxy.find('.question').css('padding','3px 10px 10px');
+        this.boxy.find('.answers').css('padding','5px 10px');
+				$('p#error-account-exists:visible').hide();
+			}
+		});
+  })
+  .on('focus', "#designedit_login  #accountInfo #accountCheck", function (e) {
+      STOP_INFINITE_LOOP=false;
+  })
+	.on('blur', "#designedit_login  #accountInfo #accountCheck", function (e) {
+		$('#designedit_login #accountExists').slideUp();
+		$('#designedit_login #signin_username').val($(this).val());
+        if ($(this).val() != '') {
+			$(this).closest('form').trigger('account_check');
+		}
+	})
+	.on('account_check', "#designedit_login #accountForm", function (e) {
+		if(!STOP_INFINITE_LOOP){
+            STOP_INFINITE_LOOP=true;
+            var $instance = $(this);
+            $.post("json.iml", "mdl=ecommerce/account_check.aj&CONTACT_Email=" + $instance.find('input[name=CONTACT_Email]').val(), function (data) {
+                var event = $.Event(data.status);
+                $instance.trigger(event, data);
+            }, 'json');
+        }
+	})
+	.on('account_exists', "#designedit_login #accountForm", function (e, data) {
+		var firstName = (data.First_Name != "") ? data.First_Name : $('#designedit_login input[name=CONTACT_First_Name]').val();
+		var fullName = (data.Full_Name != "") ? data.Full_Name : $('#designedit_login input[name=CONTACT_First_Name]').val() + " " + $('#designedit_login input[name=CONTACT_Last_Name]').val();
+		if (firstName != '') {
+			$('#designedit_login #show-first_name').text(' ' + firstName);
+		}
+		if (fullName != '') {
+			$('#designedit_login #show-full_name').text('Not ' + fullName);
+		}
+		$('#designedit_login #accountExists').slideDown();
+		$('#designedit_login #accountInfo a.button').slideUp();
+		$('#designedit_login #accountForm').slideUp();
+		$('#designedit_login #loginInfo').slideDown();
+		$('#designedit_login input#signin_password').focus();
+	})
+	.on('no_account_exists', "#designedit_login  #accountForm", function (e) {
+		$('#designedit_login #accountExists').slideUp();
+		$('#designedit_login #accountInfo a.active.button').slideDown();
+	})
+	.on('click', '#designedit_login #newAccount a', function (e) {
+		e.preventDefault();
+		$('#designedit_login #accountForm,#designedit_login #accountInfo a.button').slideDown();
+		$('#designedit_login #loginInfo').slideUp();
+		$('#designedit_login input[name=CONTACT_Email]').val('').blur().focus();
+	})
+	.on('click', '#designedit_login a#CreateAccount', function(e) {
+		e.preventDefault();
+		$('#designedit_login #accountForm').submit();
+	})
+	.on('success', "#designedit_login #login-form, #designedit_login #accountForm", function (e) {
+	// User is logged in and/or account is created
+    if( e && e.de_ok && e.de_ok*1===1 ) {
+      PREFS.user_Contact_ID = e.user_Contact_ID;
+      mcs.editProject( { layoutId: $(this).closest( '[data-template]' ).data( 'template' ) } );
+      reloadAccountTab();
+      mcs.loginModal.hideAndUnload();
+    } else {
+      mcs.loginModal.boxy.find('.close').remove();
+      mcs.loginModal.boxy.find('#designedit_login').load('ajax_jquery.iml?mdl=system/2011/designedit/login_panel.mdl');
+    }
+	})
+	.on('pending', "#designedit_login #login-form, #designedit_login #accountForm", function (e) {
+		var $this = $(this);
+		$('#designedit_login #accountInfo').empty().append($('<p id="accountPending"><strong>' + (($this.is('#login-form')) ? 'Welcome back, ' : 'Hey, ') + e.First_Name + '!</strong><br>Your account ' + (($this.is('#login-form')) ? 'is still ' : 'has been created and is ') + 'pending approval. We\'ll let you know when your account has been approved. In the meantime, please feel free to explore the rest of our website. If you need immediate assistance, give us a call at <span style="white-space:nowrap;">' + e.Shop_Phone + '.</span></p>'));
+		reloadAccountTab();
+	})
+  .on('failure', "#designedit_login #usedBefore #login-form, #designedit_login #usedBefore #forgot-password-form", function(e) {
+    $('#designedit_login').css({"height":"auto"});
+  })
+  .on('click', "#designedit_login #usedBefore .close-error-msg", function(e) {
+    e.preventDefault();
+    window.setTimeout( function() {
+      var elem = document.getElementById("designedit_login");
+      if (elem.style.removeProperty) {
+        elem.style.removeProperty('height');
+      } else {
+        elem.style.removeAttribute('height');
+      }
+    }, 400 ); // timeout equal to the length of time the slideup requires
+  })
+  .on('click', "#designedit_login #usedBefore #return-to-login-link > a,#designedit_login #usedBefore #forgot-password-link > a", function(e){
+    e.preventDefault();
+    var elem = document.getElementById("designedit_login");
+    if (elem.style.removeProperty) {
+      elem.style.removeProperty('height');
+    } else {
+      elem.style.removeAttribute('height');
+    }
+  })
+  .on('click', "#designedit_login a#docLibButton", function(e) {
+    e.preventDefault();
+    let val = $("#designedit_login select#docLibCategories").val();
+    if( val && val !=="" ) {
+      window.location.replace( PREFS.SECUREBASE + "docLib/" + val + "/" );
+    }
+  })
+	
+	/** guest user account creation form **/
+	.on('click', '#designedit_createAccountPanel a#CreateAccount', function(e) {
+		e.preventDefault();
+    var container = $( '#mcsTemplateFrame' );
+    container.addClass('loading').removeAttr('style');
+		$('#designedit_createAccountPanel #accountForm').submit();
+	})
+	.on('success', "#designedit_createAccountPanel #accountForm", function (e) {
+	// User is logged in and/or account is created
+    if( e && e.de_ok && e.de_ok*1===1 ) {
+      PREFS.user_Contact_ID = e.user_Contact_ID;
+      reloadAccountTab();
+      mcs.loginModal.hideAndUnload();
+      if( mcs.editorOrderData ) {
+        mcs.editorOrder( mcs.editorOrderData );
+      } else {
+        if( mcs.layoutId ) {
+          mcs.editProject( { layoutId: mcs.layoutId } );
+        } else {
+          var path = window.location.pathname.replace( /\/[0-9]+/g, '' );
+          window.location.href = path;
+        }
+      }    
+    } else {
+      var container = $( '#mcsTemplateFrame' );
+      container.removeClass('loading');
+      mcs.loginModal.boxy.find('.close').remove();
+      mcs.loginModal.boxy.find('#designedit_createAccountPanel').load('ajax_jquery.iml?mdl=system/2011/designedit/createAccountPanel.mdl');
+    }
+	})
+	.on('pending', "#designedit_createAccountPanel #accountForm", function (e) {
+    var container = $( '#mcsTemplateFrame' );
+    container.removeClass('loading');
+		var $this = $(this);
+		$('#designedit_createAccountPanel #accountInfo').empty().append($('<p id="accountPending"><strong>' + (($this.is('#login-form')) ? 'Welcome back, ' : 'Hey, ') + e.First_Name + '!</strong><br>Your account ' + (($this.is('#login-form')) ? 'is still ' : 'has been created and is ') + 'pending approval. We\'ll let you know when your account has been approved. In the meantime, please feel free to explore the rest of our website. If you need immediate assistance, give us a call at <span style="white-space:nowrap;">' + e.Shop_Phone + '.</span></p>'));
+		reloadAccountTab();
+	})
+  .on('failure', "#designedit_createAccountPanel #accountForm", function(e) {
+    var container = $( '#mcsTemplateFrame' );
+    container.removeClass('loading');
+    if( e.userId ) {
+      Boxy.confirm("You already have an account in our system that uses DesignEdit. If you choose to log in to this account, your project will be LOST. You will need to re-create your project, including any customizations you've already done. Would you like to log in and start over?", function() {
+        mcs.logInAndStartOver();
+      },
+      { title: 'Alert!', 
+        afterShow: function() { 
+          this.modalBlackout.css('z-index',11000002);
+          this.boxy.css('z-index',11000003 );
+          this.boxy.find('.question').css('padding','3px 10px 10px');
+          this.boxy.find('.answers').css('padding','5px 10px');
+          $('p#error-account-exists:visible').hide();
+        }
+      });
+    }
+  })
+;
+
+/* resize the full-size catalog to full-width */
+
+$( window ).resize( function() {
+	var $de_catalog = $( '.design-edit-full-catalog' );
+	$( '#mcsTemplateFrame' ).closest( '.delayed-show' ).removeAttr( 'style' );
+	var fwide = [
+		'TheCorporation',
+		'CleanStyle',
+		'EBIZ',
+		'OutsideTheBox',
+		'Hero',
+		'Minimal',
+		'RoundedBiz',
+		'eStore',
+		'Print'
+	];
+	var isWide = false;
+	var offset = 20;
+	var skipTop = false;
+	var skipCat = false;
+	for( var i = 0; i < fwide.length; i++ ) {
+		if( $( '#mcsTemplateFrame' ).closest( 'body.' + fwide[i] ).length ) {
+			isWide = true;
+			if( fwide[i] == "RoundedBiz" || fwide[i] == "OutsideTheBox" ) skipTop = true;
+			if( $.inArray( fwide[i], [ "EBIZ", "Print" ] ) > -1 ) offset = 0;
+			if( $.inArray( fwide[i], [ "Minimal", "RoundedBiz", "eStore", "Print" ] ) > -1 ) skipCat = true;
+			break;
+		}
+	}
+	if( isWide ) {
+		if( $de_catalog.length > 0 ) {
+				$nav = $( '.nav-Home:visible' );
+				/* The following css settings were messing with a custom site: Purcell Printing */
+				/*$de_catalog.css({
+					"left": - ( $de_catalog.parent().offset().left ),
+					"width": $(window).width()
+				});*/
+				/* Rachel said we don't want to hide the main header and nav because then we loose main navigation. */
+				/*if( ! skipTop ) {
+					$de_catalog.css({
+						"top": - ( $de_catalog.parent().offset().top - ( ( $nav.length ) ? $nav.offset().top + $nav.height() + offset : 1 ) ),
+					});
+				}*/
+				var $mcsTemplateFrame = $( '#mcsTemplateFrame' );
+				if( $mcsTemplateFrame.length > 0 ) {
+					$mcsTemplateFrame.css({
+						height: $( window ).height() - $mcsTemplateFrame.offset().top
+					});
+				}
+		}
+		if( ! skipCat ) {
+			var $mcsFrame = $( '#mcsTemplateFrame' );
+			var $noscroll = $( 'div.delayed-show.noscroll' );
+			if( $mcsFrame.length > 0 && $noscroll.length > 0 && ! $mcsFrame.is( '.editor' ) ) {
+				$mcsFrame.parent().css({
+					"width": $(window).width()
+				});
+				var $left = $noscroll.offset().left;
+				$noscroll.css({
+					"left": - ( $noscroll.offset().left ),
+					"width": $(window).width()
+				});
+				while( $noscroll.offset().left > 0 ) {
+					$left += $noscroll.offset().left;
+					$noscroll.css( { "left": -($left) } );
+				}
+			}
+		}
+	}
+});
+
+$(document).ready( function() {
+	$( window ).resize();
+});
+
+window.onunload = function(e) {
+  if( mcs.hasMi4pFrame() && mi4pFrame.exitFullScreen ) mi4pFrame.exitFullScreen();
+}

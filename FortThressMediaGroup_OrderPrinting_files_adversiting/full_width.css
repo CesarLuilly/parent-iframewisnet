@@ -1,0 +1,128 @@
+/* Full Width Page */
+	#content-area {
+		width: 980px !important;
+		margin: 0px !important;
+		padding: 0px !important;
+		border: 1px solid #BCBEC0;
+		position: relative;
+		background-color: #FFFFFF;
+		-webkit-box-sizing: border-box;
+		-moz-box-sizing: border-box;
+		box-sizing: border-box;
+	}
+	.portfolio #content-area.TheCorporation {
+		background-color: #000;
+	}
+		#content-area.TheCorporation {
+			top: -141px;
+			border-radius: 20px;
+			-moz-border-radius: 20px;
+		}
+
+	#sidebar, #side, #widget {
+		display: none !important;
+	}
+	#sidebar.force_display {
+		display:block !important; 
+		margin-left:0;
+	}
+	#pagetop {
+		height: 270px !important;
+	}
+	
+	/* Eco Business */
+	#sidebar-left {
+		display: none;
+	}
+	#mainwrapper .center {
+		width: 976px !important;
+	}
+	#mainwrapper .maincontent {
+		width: 950px !important;
+		padding: 0 9px !important;
+		float: none;
+	}
+	
+	/* Minimal */
+	#content {
+		background: none transparent !important;
+	}
+	.Minimal #sidebar {
+		display: none;
+	}
+	
+	/* Centivio */
+	#padding_content, #main.centivio {
+		float: none !important;
+		width: auto !important;
+	}
+	
+	/* CleanStyle */
+	.colBig {
+		width: 980px !important;
+		margin-right: 0px;
+	}
+	
+	/* EBIZ */
+	#maincontent {
+		width: 980px !important;
+		margin: auto;
+		float: none;
+		background: none transparent !important;
+	}
+	#content-wrapper-inner #content {
+		width: 980px;
+		background: none transparent !important;
+	}
+	.sidebar {
+		display: none !important;
+	}
+	
+	/* Rounded Biz */
+	
+	#container #content #main {
+		width: 1028px !important;
+		padding: 0px !important;
+		margin: 0px !important;
+	}
+	#container #content #main #mainbox {
+		width: 980px !important;
+		padding: 0px 25px !important;
+		/* overflow: auto; */
+	}
+	
+	
+	/* Choose Print */
+	
+	#body #right {
+		display: none;
+	}
+	#body #left {
+		float: none !important;
+		width: auto !important;
+		padding: 0 10px 10px !important;
+	}
+	
+	/* MatchPoint */
+	
+	.rightsidebar {
+		background: none white !important;
+	}
+	/* #content > div > aside { ----This Broke the My Account pages in "Minimal". Don't reenable without addressing that issue.
+		display: none !important;
+	} */
+	.container_12 .grid_8 {
+		width: 940px !important;
+	}
+	
+	/* Display */
+	
+	#top #main, #top #main #content {
+		width: 980px;
+	}
+	
+	/* PureVISION */
+	
+	.container_24 .grid_16 {
+    width: 980px !important;
+	}

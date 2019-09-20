@@ -1,0 +1,408 @@
+function escapeExtended(string){
+        string=new String(string);
+        string = string.replace(/\r\n/g,"\n");
+        var utftext = "";
+        for (var n = 0; n < string.length; n++) {
+            var c = string.charCodeAt(n);
+            if (c < 128) utftext +=string.charAt(n);
+            else utftext += "&#"+c+";";
+        }
+        return utftext;
+}
+
+
+var PageFlexList=new Array();
+
+function PageFlexPreview(div,img,project,job,form,loadingImg){
+  this.form=form;
+  this.project=project;
+  this.job=job;
+  this.div=div;
+  this.fullImg=img;
+  this.loadingImg=loadingImg;
+  this.div.style["display"]="none";
+  this.setupInputs();
+  this.index=PageFlexList.length;
+  PageFlexList[this.index]=this;
+  this.res="";
+  this.getPreview();
+  this.isLoadingPreview=false;
+  this.isWaitingForNewPreview=false;
+}
+
+PageFlexPreview.prototype.setupInputs=function(){
+  var instance=this;
+  var i;
+  var inputs=this.form.getElementsByTagName('input');
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].type=="text"||inputs[i].type=="hidden")  
+          Evt.addEventListener(inputs[i],"change",function(event){var ev=new Evt(event);instance.getPreview(ev.source);},false);
+    else  Evt.addEventListener(inputs[i],"click",function(event){var ev=new Evt(event); instance.getPreview(ev.source);},false);
+  }    
+  inputs=this.form.getElementsByTagName('select');
+  for(i=0; i<inputs.length; i++){
+    Evt.addEventListener(inputs[i],"change",function(event){var ev=new Evt(event);instance.getPreview(ev.source);},false);
+  }    
+  inputs=this.form.getElementsByTagName('textarea');
+  for(i=0; i<inputs.length; i++){
+    Evt.addEventListener(inputs[i],"change",function(event){var ev=new Evt(event);instance.getPreview(ev.source);},false);
+  }      
+}
+
+PageFlexPreview.prototype.loadParams=function(){
+  var params=new AjaxFormContent();
+  var inputs=this.form.getElementsByTagName("*");  
+  for(var i=0; i<inputs.length; i++){
+    if(inputs[i].tagName=="INPUT"||inputs[i].tagName=="SELECT"||inputs[i].tagName=="TEXTAREA"){
+       if(!$(inputs[i]).is('.hidden_input')&&inputs[i].name!="update_mdl"&&inputs[i].name!="update_function"&&inputs[i].name!="mdl") params.addContent(inputs[i]);
+    }
+  }      
+  return params;
+}
+
+PageFlexPreview.prototype.getPreview=function(obj){
+    if(this.isLoadingPreview){
+      this.isWaitingForNewPreview=true;
+      return;
+    }
+    this.isLoadingPreview=true;
+    this.isWaitingForNewPreview=false;
+    
+  this.loading();
+  var instance=this;
+  var params=this.loadParams();  
+  params.addNameValue("mdl","pageflex/getPreview.aj");  
+  params.addNameValue('PF_Job',this.job);
+  params.addNameValue('PF_Project',this.project);  
+  params.addNameValue('PF_Width',this.fullImg.width);  
+  params.addNameValue('DEBUG',1);
+  if(PREFS.cXML_ID&&PREFS.cXML_ID>0) params.addNameValue('cXML_ID',PREFS.cXML_ID);  
+
+  ajaxPostFunction(params,function(sc,st,rt,rxml){ 
+        var status=getTagValue(rxml,"status");   
+        instance.div.style["display"]="none";
+        instance.div.innerHTML="";        
+        if(status=="FAILED"){
+          var errors=rxml.getElementsByTagName("error");
+          if(errors){            
+            for(var i=0; i<errors.length; i++){
+              instance.div.innerHTML=instance.div.innerHTML+getTagValue(errors[i],"msg")+"<br>";
+              instance.div.style["display"]="";
+//              alert(getTagValue(errors[i],"msg"));
+            }
+          }
+          instance.notAvailable();
+        }else{
+          instance.pfID=getTagValue(rxml,"pfid");   
+          if(instance.pfID=="") instance.notAvailable();
+          else instance.processPreview(PREFS.PF_SERVER_DOMAIN+'pfupload/download.iml?PF_ID='+instance.pfID+'&client_dir='+PREFS.Site_Dir);
+        }
+          instance.isLoadingPreview=false;
+          if(instance.isWaitingForNewPreview) instance.getPreview(obj);
+           
+      },
+   "ajax.iml");
+   
+  
+   
+}
+
+
+PageFlexPreview.prototype.processPreview=function(rt){
+  var instance=this;
+  if(this.fullImg!=null){
+//    this.fullImg.src="images/spacer.gif";
+    this.fullImg.onclick=function(){instance.fullImg.scrollIntoView();};
+    this.fullImg.src=rt;
+    this.fullImg.style["visibility"]="";
+    this.loadingImg.style["display"]="none";      
+    this.fullImg.onclick=function(){instance.enlargeDirect();};
+  }
+}
+
+
+
+
+PageFlexPreview.prototype.enlargeDirect=function(){
+  var form=ce('form'); form.action="popup2.iml"; form.target="PROOF"; form.method="post";
+  document.body.appendChild(form);
+  var input;
+  var inputs=this.form.getElementsByTagName("*");  
+  for(var i=0; i<inputs.length; i++){
+    if(inputs[i].tagName=="INPUT"||inputs[i].tagName=="SELECT"||inputs[i].tagName=="TEXTAREA"){
+       if(!$(inputs[i]).is('.hidden_input')&&inputs[i].name!="update_mdl"&&inputs[i].name!="update_function"&&inputs[i].name!="mdl"&&inputs[i].name!="cXML_ID"){
+         if(inputs[i].tagName=="INPUT"||inputs[i].tagName=="TEXTAREA"){
+           if((inputs[i].type!="checkbox"&&inputs[i].type!="radio")||inputs[i].checked){
+             input=ce('input'); input.type="hidden"; input.name=inputs[i].name; input.value=inputs[i].value; 
+             form.appendChild(input);           
+           }
+         }else{
+           input=ce('input'); input.type="hidden"; input.name=inputs[i].name; 
+           if(inputs[i].selectedIndex>=0 && (typeof inputs[i].options[inputs[i].selectedIndex] !== 'undefined'))
+              input.value=inputs[i].options[inputs[i].selectedIndex].value; 
+            else input.value="";
+           form.appendChild(input);
+         }
+       } 
+    }
+  }    
+  input=ce('input'); input.type="hidden"; input.name="PF_Job"; input.value=this.job; 
+  form.appendChild(input);
+  input=ce('input'); input.type="hidden"; input.name="PF_Project"; input.value=this.project; 
+  form.appendChild(input);
+  input=ce('input'); input.type="hidden"; input.name="cXML_ID"; input.value=PREFS.cXML_ID; 
+  form.appendChild(input);
+  input=ce('input'); input.type="hidden"; input.name="mdl"; input.value="pageflex/getDirect.mdl"; 
+  form.appendChild(input);
+  var blank=PREFS.WEBBASE+'blank.html';
+  if(PREFS.cXML_ID&&PREFS.cXML_ID>0) blank+='?cXML_ID='+PREFS.cXML_ID;
+  var tmp=window.open(blank,'PROOF','width=400,height=400,toolbar=0,location=0,status=0,menubar=0,scrollbars=1',false);
+  form.submit();
+  document.body.removeChild(form);
+  tmp.focus();  
+}
+
+
+PageFlexPreview.prototype.loading=function(){
+  if(this.fullImg!=null){
+    this.fullImg.style["visibility"]="hidden";
+    this.loadingImg.style["display"]="";      
+//    this.fullImg.src="images/Spinning-Ball2.gif";
+  }
+}
+PageFlexPreview.prototype.notAvailable=function(){
+  if(this.fullImg!=null){
+    this.fullImg.style["visibility"]="";
+    this.loadingImg.style["display"]="none";      
+    this.fullImg.src="no_image.jpg";
+  }
+
+}
+
+
+
+
+/*****************************************************************************************/
+function PageFlexProduction(ticket,project,job){
+  this.project=project;
+  this.job=job;
+  this.ticket=ticket;
+  this.index=PageFlexList.length;
+  PageFlexList[this.index]=this;  
+}
+
+PageFlexProduction.prototype.get=function(alink){
+  this.alink=null;
+  this.textLink=null;
+  this.processImg=null;
+  if(alink){    
+    this.alink=alink;
+    this.processText=ce('span'); this.processText.innerHTML="Processing...";
+    for(var i=0; i<this.alink.childNodes.length;i++){ if(this.alink.childNodes[i].tagName=="IMG") this.processImg=this.alink.childNodes[i].cloneNode(true); }    
+    if(this.processImg) this.alink.parentNode.insertBefore(this.processImg,this.alink);
+    this.alink.parentNode.insertBefore(this.processText,this.alink);
+    this.alink.style["display"]="none";
+  }
+  this.attempts=10;
+  this.loading();
+  var instance=this;
+  var params=new AjaxFormContent();
+  params.addNameValue("mdl","pageflex/getProduction.aj");  
+  params.addNameValue('PF_Job',this.job);
+  params.addNameValue('Job_ID',this.ticket);
+  params.addNameValue('PF_Project',this.project);  
+  params.addNameValue('DEBUG',1);
+  if(PREFS.cXML_ID&&PREFS.cXML_ID>0) params.addNameValue('cXML_ID',PREFS.cXML_ID);  
+  ajaxPostFunction(params,function(sc,st,rt,rxml){ 
+        var status=getTagValue(rxml,"status");   
+        if(status=="FAILED"){
+          var errors=rxml.getElementsByTagName("error");
+          if(errors){
+            for(var i=0; i<errors.length; i++){
+              alert(getTagValue(errors[i],"msg"));
+            }
+          }
+          instance.notAvailable();
+        }else{
+          instance.pfID=getTagValue(rxml,"pfid");       
+          if(instance.pfID=="") instance.notAvailable();
+          else instance.show();
+        }
+      },
+   "ajax.iml");
+
+}
+
+PageFlexProduction.prototype.show=function(){
+   window.location.replace(PREFS.PF_SERVER_DOMAIN+'pfupload/download.iml?PF_ID='+this.pfID+'&client_dir='+PREFS.Site_Dir);
+   if(this.processImg) this.processImg.parentNode.removeChild(this.processImg);
+   if(this.processText) this.processText.parentNode.removeChild(this.processText);
+   if(this.alink) this.alink.style["display"]=""; 
+}
+
+PageFlexProduction.prototype.loading=function(){
+  if(this.fullImg!=null){
+    this.fullImg.src="images/Spinning-Ball2.gif";
+  }
+}
+PageFlexProduction.prototype.notAvailable=function(){
+  if(this.processImg) this.processImg.parentNode.removeChild(this.processImg);
+  if(this.processText) this.processText.parentNode.removeChild(this.processText);
+  if(this.alink) this.alink.style["display"]="";
+  if(this.fullImg!=null)  this.fullImg.src="no_image.jpg";
+}
+
+
+
+
+/*****************************************************************************************/
+function PageFlexPDFPreview(form,project,job){
+  this.project=project;
+  this.job=job;
+  this.form=form;
+  this.index=PageFlexList.length;
+  PageFlexList[this.index]=this;  
+}
+
+PageFlexPDFPreview.prototype.get=function(alink){
+  this.alink=null;
+  this.textLink=null;
+  this.processImg=null;
+  if(alink){    
+    this.alink=alink;
+    this.processText=ce('span'); this.processText.innerHTML="Processing...";
+    for(var i=0; i<this.alink.childNodes.length;i++){ if(this.alink.childNodes[i].tagName=="IMG") this.processImg=this.alink.childNodes[i].cloneNode(true); }    
+    if(this.processImg) this.alink.parentNode.insertBefore(this.processImg,this.alink);
+    this.alink.parentNode.insertBefore(this.processText,this.alink);
+    this.alink.style["display"]="none";
+  }
+  this.attempts=10;
+  this.loading();
+  var instance=this;
+  var params=new AjaxFormContent();
+  params.addNameValue("mdl","pageflex/getPreview.aj");  
+  var inputs=this.form.getElementsByTagName("*");  
+  for(var i=0; i<inputs.length; i++){
+    if(inputs[i].tagName=="INPUT"||inputs[i].tagName=="SELECT"||inputs[i].tagName=="TEXTAREA"){
+       if(!$(inputs[i]).is('.hidden_input')&&inputs[i].name!="update_mdl"&&inputs[i].name!="update_function"&&inputs[i].name!="mdl") params.addContent(inputs[i]);
+    }
+  }      
+  params.addNameValue('PF_Job',this.job);
+  params.addNameValue('PF_Project',this.project);  
+  params.addNameValue('DEBUG',1);
+  if(PREFS.cXML_ID&&PREFS.cXML_ID>0) params.addNameValue('cXML_ID',PREFS.cXML_ID);  
+  ajaxPostFunction(params,function(sc,st,rt,rxml){ 
+        var status=getTagValue(rxml,"status");   
+        if(status=="FAILED"){
+          var errors=rxml.getElementsByTagName("error");
+          if(errors){
+            for(var i=0; i<errors.length; i++){
+              alert(getTagValue(errors[i],"msg"));
+            }
+          }
+          instance.notAvailable();
+        }else{
+          instance.pfID=getTagValue(rxml,"pfid");       
+          if(instance.pfID=="") instance.notAvailable();
+          else instance.show();
+        }
+      },
+   "ajax.iml");
+}
+
+PageFlexPDFPreview.prototype.show=function(){
+   window.location.replace(PREFS.PF_SERVER_DOMAIN+'pfupload/download.iml?PF_ID='+this.pfID+'&client_dir='+PREFS.Site_Dir);
+   if(this.processImg) this.processImg.parentNode.removeChild(this.processImg);
+   if(this.processText) this.processText.parentNode.removeChild(this.processText);
+   if(this.alink) this.alink.style["display"]=""; 
+}
+
+
+PageFlexPDFPreview.prototype.getDirect=function(alink){  
+  $('#pageflex_click_to_download').remove();
+  var l_alink=null;
+  var l_processText=null
+  if(alink){    
+    l_alink=$(alink);
+    l_processText=$('<span></span>');
+    l_alink.find('img').clone().appendTo(l_processText);
+	l_processText.append('Processing...');	
+	l_processText.insertAfter(l_alink);
+    l_alink.hide();
+  }
+  this.loading();
+  var instance=this;
+  
+  var data={ PF_Job:this.job,
+			 PF_Project:this.project};
+  $(this.form).find('input:text:visible,input:hidden,input:checked,select,textarea:visible').each(function(){ data[$(this).attr('name')]=escapeExtended($(this).val()); });			 
+  data['mdl']="pageflex/getPreview.aj";
+  if(PREFS.cXML_ID&&PREFS.cXML_ID>0) data['cXML_ID']=PREFS.cXML_ID;  
+  
+  $.post("ajax.iml", data, function(d){
+        var status=$(d).find("status").text();   
+        if(status=="FAILED"){
+          $(d).find("error").each(function(){alert($(this).find("msg").text());})
+          instance.notAvailable();
+          l_processText.remove();
+   		  l_alink.show();
+        }else{
+          instance.pfID=$(d).find("pfid").text();       
+          if(instance.pfID==""){
+		     instance.notAvailable();
+			 l_processText.remove();
+   		     l_alink.show();
+		  }else{
+//           var tmp=window.open(PREFS.PF_SERVER_DOMAIN+'pfupload/download.iml?PF_ID='+instance.pfID+'&client_dir='+PREFS.Site_Dir,'PROOF','width=400,height=400,toolbar=0,location=0,status=0,menubar=0,scrollbars=1',false);
+window.location.replace(PREFS.PF_SERVER_DOMAIN+'pfupload/download.iml?PF_ID='+instance.pfID+'&client_dir='+PREFS.Site_Dir);
+			 l_processText.html('<br /><a id="pageflex_click_to_download" href="'+PREFS.PF_SERVER_DOMAIN+'pfupload/download.iml?PF_ID='+instance.pfID+'&client_dir='+PREFS.Site_Dir+'">Click here if download doesn\'t start immediately.</a>');
+             l_alink.show();
+  
+		  }
+		}
+  });
+}
+
+
+PageFlexPDFPreview.prototype.getDirect2=function(alink){  
+  var l_alink=null;
+  var l_processText=null
+  if(alink){    
+    l_alink=$(alink);
+    l_processText=$('<span></span>');
+    l_alink.find('img').clone().appendTo(l_processText);
+	l_processText.append('Processing...');	
+	l_processText.insertAfter(l_alink);
+    l_processText.show(1).delay(10000).hide(1);
+  }
+
+  var form=$('<form action="download.iml" method="post" target="LOADIN_FRAME"></form>');
+  form.append('<input type="hidden" name="PF_Job" value="'+this.job+'" />')
+  .append('<input type="hidden" name="PF_Project" value="'+this.project+'" />');
+  $(this.form).find('input:text,input[type=hidden],input:checked,select,textarea:visible').each(function(){
+       form.append($('<input type="hidden" />').attr('name',$(this).attr('name')).val($(this).val()));
+      });			 
+  form.find('[name=mdl]').val("");
+  if(form.find('[name=update_mdl]').length==0)form.append('<input type="hidden" name="update_mdl" value="pageflex/getPreview2.aj" />');
+  else form.find('[name=update_mdl]').val("pageflex/getPreview2.aj");
+  $('body').append(form);
+  form.submit();
+  if(l_alink) l_alink.hide(1).delay(10000).show(1);
+  
+ 
+}
+
+
+PageFlexPDFPreview.prototype.loading=function(){
+  if(this.fullImg!=null){
+    this.fullImg.src="images/Spinning-Ball2.gif";
+  }
+}
+PageFlexPDFPreview.prototype.notAvailable=function(){
+  if(this.processImg) this.processImg.parentNode.removeChild(this.processImg);
+  if(this.processText) this.processText.parentNode.removeChild(this.processText);
+  if(this.alink) this.alink.style["display"]="";
+  if(this.fullImg!=null)  this.fullImg.src="no_image.jpg";
+}
+
+

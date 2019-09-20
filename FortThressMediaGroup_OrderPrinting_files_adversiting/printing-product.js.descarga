@@ -1,0 +1,2691 @@
+var filesInQueue;
+var connectionErrors = 0;
+var quoteSentMessage = 'We will be in touch with an estimate shortly.';
+var depCt = [];
+var est_boxy = null;
+var peopleSearchLoaded = false;
+var dropdownsLoaded = false;
+var initialFieldValues = [];
+var dependentElements = [];
+
+/* returns true/false based on the element passed in 
+    true = the element has dependencies and the value or checked state has changed 
+    false = the element has no dependencies or the value/checked state has not changed
+*/
+function triggerDependencies(element) { // element = the DOM element (:input) that set this in motion
+  var doDependencies = true;
+  if( ! initialFieldValues.length ) {
+    initialFieldValues = [];
+    $('form#product_order').find(':input[name^="step2Attribute_Value"]').each( function() {
+      initialFieldValues.push({
+        field: this,
+        value: this.value,
+        checked: ( $(this).is(':radio')||$(this).is(':checkbox') ) ? this.checked : null
+      });
+    });
+  } else {
+    for( var i = 0; i < initialFieldValues.length; i++ ) {
+      var field = initialFieldValues[i];
+      if( field.field === element ) {
+        if( field.value === element.value && ( field.checked === null || field.checked === element.checked ) ) {
+          doDependencies = false;
+        } else {
+          if( $(field.field).is( ':radio' ) ) {
+            for( var j = 0; j < initialFieldValues.length; j++ ) {
+              var field2 = initialFieldValues[j];
+              if( field2.field.name === element.name && i !== j ) {
+                field2.checked = false;
+              }
+            }
+          }
+          field.value = element.value;
+          field.checked = ( $(element).is(':radio')||$(element).is(':checkbox') ) ? element.checked : null;
+        }
+        break;
+      }
+    }
+  }
+  if( doDependencies ) {
+    var $this = ( $(element).is('select') ) ? $(element).find('option:selected') : $(element);
+    doDependencies = $this.attr('data-dependencies') && $this.attr('data-dependencies') !== "";
+  }
+  return doDependencies;
+}
+
+/** Carl's functions used for the ink color options */
+
+function colorsAreSelected(thisContainer) {
+	if ($('.twocolor:visible', thisContainer).length == 0) {
+		return false;
+	}
+	var firstcolorselected = false;
+	var secondcolorselected = false;
+	if ($('.colorone .color_choices', thisContainer).prop('selectedIndex') > 0) {
+		if ($('.colorone .color_choices', thisContainer).find('option:selected').is('[data-custom]')) {
+			if ($('input[type=radio][name^=Attribute_Value_Color_One_PMS_]:checked', thisContainer).val() == "Unknown" || $('input[name^=Attribute_Value_Color_One_PMS_Code_]').val() != "") {
+				firstcolorselected = true;
+			}
+		} else {
+			firstcolorselected = true;
+		}
+	}
+	if ($('.colortwo .color_choices', thisContainer).prop('selectedIndex') > 0) {
+		if ($('.colortwo .color_choices', thisContainer).find('option:selected').is('[data-custom]')) {
+			if ($('input[type=radio][name^=Attribute_Value_Color_Two_PMS_]:checked', thisContainer).val() == "Unknown" || $('input[name^=Attribute_Value_Color_Two_PMS_Code_]').val() != "") {
+				secondcolorselected = true;
+			}
+		} else {
+			secondcolorselected = true;
+		}
+	}
+	if ($('.colortwo:visible', thisContainer).length == 0) {
+		return firstcolorselected;
+	} else if (!firstcolorselected || !secondcolorselected) {
+		return false;
+	} else {
+		return true;
+	}
+}
+
+function loadJob(JobID) {
+	var timer = new Array();
+	if (!isNaN(JobID) && JobID != "" && JobID != null/*  && $('#docLibItem').length == 0 */) {
+		var data = [{'name': 'mdl', 'value': PREFS.OPC_Version_Path + 'printing/loadJob.aj'}, {
+				'name': 'DEBUG',
+				'value': 1
+		}, {'name': 'JOB_Job_ID', 'value': JobID}];
+		var customFields = $('input[type=hidden][name=CUSTOM_FIELDS]');
+		$.post('json.iml', data, function (rdata) {
+			if (rdata && rdata.hasOwnProperty('Attributes')) {
+				customFields.each(function () {
+					var $key = $(this).data('label');
+					var $key2 = $key.replace(/:/g, '');
+					if (rdata.Attributes.hasOwnProperty($key) || rdata.Attributes.hasOwnProperty($key2)) {
+						var $value = (rdata.Attributes.hasOwnProperty($key)) ? rdata.Attributes[$key] : rdata.Attributes[$key2];
+						var fieldName = $(this).data('field');
+						var $field = $(':input[name=' + fieldName + ']');
+						if ($field.is(':radio') || $field.is(':checkbox')) {
+							$field.each(function () {
+								if ($(this).val() == $value) {
+									if ($(this).closest('.option-container').length > 0) { // necessary for forms with options that change based on the selection made in a separate question (see Labels > Shape/Size for an example)
+										var $id = $(this).closest('.option-container').attr('id');
+										if ($('input#' + $id + ':checked').length == 1) {
+											$(this).click();
+											$(this).prop('checked', 'checked');
+											return false;
+										}
+									} else if ($(this).is('.populate-tab-options')) { // custom tab color options
+										if (rdata.Attributes.hasOwnProperty('Mylar Tab Color:') && rdata.Attributes['Mylar Tab Color:'] != "") {
+											$('select[name=MylarTabColors]').val(rdata.Attributes['Mylar tab Color:']);
+										} else if (rdata.Attributes.hasOwnProperty('Mylar Tab Colors:') && rdata.Attributes['Mylar Tab Colors:'] != "") {
+											var $this = $(this);
+											timer[timer.length] = window.setTimeout(function () {
+												$this.trigger('click');
+												timer[timer.length] = window.setTimeout(function () {
+													var tabs = rdata.Attributes['Mylar Tab Colors:'].split(',');
+													$('select[name=MylarTabColors]').each(function (index) {
+														if (tabs[index].trim()) {
+															$(this).val(tabs[index].trim()).trigger('colorset');
+														}
+													});
+												}, 2000);
+											}, 1000);
+										}
+										return false;
+									} else if ($(this).is('.Color1Custom') || $(this).is('.Color2Custom')) { // custom color options
+										if ($(this).is('.Color1Custom')) {
+											$(this).closest('.colorone').find('.Color1PMSUnknown').click();
+										} else {
+											$(this).closest('.colortwo').find('.Color2PMSUnknown').click();
+										}
+										return false;
+									} else { // everything else
+										$(this).click();
+										return false;
+									}
+								}
+							});
+						} else {
+							$field.val($value).trigger($.Event('change',{'init':'1'})); // 'init' setting is for 1001/autofill_2011.js and 1001/autofill_multiple_2011.js
+							if ($field.is('.Color1PMSCode')) {
+								$field.closest('.coloronecustom').find('.Color1PMSKnown').click();
+							}
+							if ($field.is('.Color2PMSCode')) {
+								$field.closest('.colortwocustom').find('.Color2PMSKnown').click();
+							}
+						}
+					}
+				});
+				timer[timer.length] = window.setTimeout(function () {
+					$('input[type=radio][name^=ColorChoices]:checked').trigger('price_update');
+				}, 500);
+			}
+			if (rdata.hasOwnProperty('MIS_Template_ID') && $('input[name=MIS_Template_ID]').length == 1) {
+				$('input[name=MIS_Template_ID]').val(rdata.MIS_Template_ID);
+			}
+			$('#Qty').trigger('update');
+			$(':input[isqty]').trigger('change');
+		}, 'json');
+	}
+}
+
+function updateColorSpecs(form) {
+	/* for shopping cart purposes */
+	var c1 = form.find('input:text[name^="Color1"][value=""], input:text[name^="Color2"][value=""], input:radio[name^="Color1"], input:radio[name^="Color2"], input:checkbox[name^="Color1"]:not(:checked), input:checkbox[name^="Color2"]:not(:checked)');
+	for (i = 0; i < c1.length; i++) {
+		form.find('input:hidden[name="CUSTOM_FIELDS"][value^="' + c1[i].name + ':"]').remove();
+	}
+	var c2 = form.find('input:radio[name^="Color1"]:checked, input:radio[name^="Color2"]:checked');
+	for (i = 0; i < c2.length; i++) {
+		if (form.find('input:hidden[name="CUSTOM_FIELDS"][value^="' + c2[i].name + ':"]').length == 0) {
+			var f_val = c2[i].name.replace('Color1', 'Color 1');
+			f_val = f_val.replace('Color2', 'Color 2');
+			f_val = f_val.replace(/_/g, ' ');
+			$('<input>').attr({
+				type: 'hidden',
+				name: 'CUSTOM_FIELDS',
+				value: c2[i].name + ':' + f_val + ':'
+			}).appendTo(form);
+		}
+	}
+	var containers = $('.coloroptionshell', form);
+	for (i = 0; i < containers.length; i++) {
+		if ($('.twocoloroptions input[type="radio"]:checked', containers[i]).length == 0) {
+			if ($('select[name^="Color2"]', containers[i]).length > 0) {
+				var t_val = $('select[name^="Color2"]', containers[i])[0].name;
+				var t_val2 = t_val.replace('Color2', 'Color 2');
+				t_val2 = t_val2.replace(/_/g, ' ');
+				if (t_val2 != 'Color 2') {
+					t_val2 = t_val2.replace('Color 2', 'Color 2 ');
+				}
+				form.find('input:hidden[name="CUSTOM_FIELDS"][value="' + t_val + ':' + t_val2 + ':"]').remove();
+			}
+			if ($('.onecoloroptions input[type="radio"]:checked', containers[i]).length == 0) {
+				if ($('select[name^="Color1"]', containers[i]).length > 0) {
+					var o_val = $('select[name^="Color1"]', containers[i])[0].name;
+					var o_val2 = o_val.replace('Color1', 'Color 1');
+					o_val2 = o_val2.replace(/_/g, ' ');
+					if (o_val2 != 'Color 1') {
+						o_val2 = o_val2.replace('Color 1', 'Color 1 ');
+					}
+					form.find('input:hidden[name="CUSTOM_FIELDS"][value="' + o_val + ':' + o_val2 + ':"]').remove();
+				}
+			}
+		}
+		if ($('input[type="radio"].FrontTwoBackOne:checked', containers[i]).length == 0) {
+			if ($('select[name^="BackSideColor"]', containers[i]).length > 0) {
+				var c_val = $('select[name^="BackSideColor"]', containers[i])[0].name;
+				form.find('input:hidden[name="CUSTOM_FIELDS"][data-field="' + c_val + '"]').remove();
+			}
+		}
+	}
+}
+
+function validDate($object) {
+	// ensure dates entered into a date picker field are valid
+	var valid = true;
+	if( $object.val() !== "" ) {
+		var val = $object.val();
+		val = val.replace( /^([0-9]{1}\/)/, "0" + "$1" ).replace( /(\/)([0-9]\/)/, "$1" + "0" + "$2" );
+		var valid = /^((0?[1-9])|(1[0-2]))\/((0?[1-9])|([1-2][0-9])|(3[0-1]))\/20[1-9][0-9]$/.test( val );
+		if( valid ) {
+			var today = new Date;
+			var cDay = today.getDate();
+			var cMon = today.getMonth()+1;
+			var cYr = today.getFullYear();
+			var v_arr = val.split( '/' );
+			if( v_arr.length !== 3 ) valid = false;
+		}
+		if( valid ) {
+			var vDay = parseInt( v_arr[1] );
+			var vMon = parseInt( v_arr[0] );
+			var vYr = parseInt( v_arr[2] );
+			if( isNaN( vDay ) || isNaN( vMon ) || isNaN( vYr ) ) valid = false;
+		}
+		if( valid ) {
+			if( vYr < cYr || ( vYr == cYr && ( vMon < cMon || ( vDay < cDay && vMon == cMon ) ) ) ) valid = false;
+		}
+		if( valid ) {
+			if( $.inArray( vMon, [ 1, 3, 5, 7, 8, 10, 12 ] ) < 0 && vDay > 30 ) valid = false;
+		}
+		if( valid ) {
+			if( vMon === 2 ) {
+				if( vDay > 28 ) valid = false;
+				if( vDay === 29 && vYr%4 === 0 ) {
+					valid = true;
+					if( vYr%100 === 0 && vYr%400 !== 0 ) valid = false;
+				}
+			}
+		}
+	}
+	if( ! valid ) $object.addClass( 'msg-invalid' ).focus();
+	else $object.val( val );
+	return valid;
+}
+
+function validateForm($formObject) {
+	// Find all required fields and make sure they are not blank
+	formValidated = true;
+	if ($formObject.find('a#edit_template').length > 0 && $formObject.find('input[name=JOB_Instance_ID]').length > 0 && $formObject.find('input[name=JOB_Instance_ID]').val() == "") {
+		formValidated = false;
+		var no_instance = new Boxy('<div style="width:370px;"><h4>Please Edit Your Design</h4><p>Your order cannot be placed until you edit the design template you selected. Please edit your design before submitting your order.</p><p style="text-align:center"><a href="#" class="medium site-color button" onclick="$(\'a#edit_template\').trigger(\'click\');Boxy.get(this).hide();return false;">Edit Your Design</a></p></div>',
+			{
+				title: 'Edit Your Design',
+				modal: true,
+				hideFade: true,
+				hideShrink: '',
+				afterShow: function () {
+					formatBoxy();
+				}
+			}
+		);
+	}
+	$formObject.find('input[required]:not(.hidden_input), textarea[required]:not(.hidden_input)').each(function (index) {
+		if ($(this).val() == ''/*  || $(this).val() == $(this).attr('placeholder') */) {
+			formValidated = false;
+			$(this).addClass('msg-required');
+		} else {
+			$(this).removeClass('msg-required');
+		}
+	}).end().find('select[required]:not(.hidden_input)').each(function (index) {
+		if (this.selectedIndex == 0) {
+			formValidated = false;
+			$(this).addClass('msg-required');
+		} else {
+			$(this).removeClass('msg-required');
+		}
+	}).end().find(':checkbox[required]:not(:checked),:radio[required]:not(:checked)').each(function () {
+		if ($formObject.find(':input[name="' + $(this).attr('name') + '"]:checked').length == 0) {
+			formValidated = false;
+			$(this).addClass('msg-required');
+		} else {
+			$(this).removeClass('msg-required');
+		}
+	}).end().find('li.required_upload').each(function () {
+		if ($(this).find('input[name=file_name]').eq(0).val() == "" && $(this).find('input[name=file_name]').eq(0).closest('.no_file_selected').length > 0) {
+			$(this).find('.file_upload:hidden').slideDown();
+			$(this).find('p.msg-required').remove();
+			$('input[name=file_name]').eq(0).addClass('msg-required').before('<p class="msg-required">Please upload a file.</p>');
+			formValidated = false;
+		}
+	}).end().find('div.dimension_container:visible').each(function (index) {
+		var dmCt = 0;
+		$(this).find(':input.dimension_input:not([required])').each(function () {
+			if ($(this).val() != "") {
+				dmCt++;
+			}
+		});
+		if (dmCt == 1) {
+			$(this).find(':input.dimension_input:not([required])').each(function () {
+				if ($(this).val() == "") {
+					$(this).addClass('msg-required');
+					formValidated = false;
+				} else {
+					$(this).removeClass('msg-required');
+				}
+			});
+		}
+	}).end().find('input.datepicker.turnaroundOther:visible').each( function() {
+		if( formValidated ) formValidated = validDate( $(this) );
+	}).end().find('input[name*="Attribute_Value_Other_"]:visible').each(function() {
+		if( $(this).val() == "" ) {
+			var oid = $(this).data( 'option_id' );
+			if( oid ) {
+				var $comrade = $('select[required]>option[data-option_id="'+oid+'"]:selected,input[required][data-option_id="'+oid+'"]:checked');
+				if( $comrade.length > 0 ) {
+					$(this).addClass('msg-required');
+					formValidated = false;
+				} else {
+					$(this).removeClass('msg-required');
+				}
+			}
+		} else {
+			$(this).removeClass('msg-required');
+		}
+	})
+	// to do: replace file upload utility with jquery upload (this section of code is necessary for pageflex image uploads)
+	// BTK 5/10/13
+	try {
+		if (formValidated && FileUploadUtilityList) {
+			for (var i = 0; i < FileUploadUtilityList.length; i++) {
+				FileUploadUtilityList[i].closeOut();
+			}
+			for (var i = 0; i < FileUploadUtilityList.length; i++) {
+				if (FileUploadUtilityList[i].sending || FileUploadUtilityList[i].waitingToSend) {
+					formValidated = false;
+				}
+			}
+		}
+	} catch (error) {
+	}
+	//  end file upload utility
+	return formValidated;
+}
+
+function submitOrder(obj) {
+	if ($('#accountForm').length > 0 && !obj.is('#edit_template')) {
+		$('#accountForm').submit(); // User is not logged in - submit the create account form
+	} else {
+		$('.pricing_form').trigger(obj.prop('id')); // User is logged in - request the estimate or place the order
+		$('#dockable').removeClass('docked');
+	}
+}
+
+function getAnswer( elId ) {
+  var ret = null;
+  var $nameField = $(':input[name="step2Attribute_Name_'+elId+'"]');
+  var $valueField = $(':input[name="step2Attribute_Value_'+elId+'"]');
+  var isColor = false;
+  if( $nameField.length ) {
+    ret = {
+      label: $nameField.val()
+    };
+    var val = "";
+    var val2 = "";
+    $(':input[name^="step2Attribute_Name_"]').each( function( inx ) {
+      if( this === $nameField[0] ) {
+        ret.sort = inx;
+        return false;
+      }
+    });
+    if( $valueField.length ) {
+      $valueField.each( function() {
+        if( $(this).is( ':checkbox' ) ) {
+          if( $(this).is( ':checked' ) ) {
+            if( typeof val === "string" ) {
+              val2 = [];
+              if( val2 !== null && val !== "" ) val2.push( val );
+              val = val2;
+            }
+            val.push( $(this).val() );
+          }
+        } else if( $(this).is( ':radio' ) ) {
+          if( $(this).is( ':checked' ) ) {
+            val = $(this).val();
+            if( $(this).attr( 'data-type' ) == 17 ) { // color options 
+              isColor = true;
+              var space = $(this).attr( 'data-colors' );
+              if( space ) {
+                space = space.split( '/' );
+                var front = parseInt( space[0] );
+                var back = ( space.length > 1 ) ? parseInt( space[1] ) : 0;
+                if( front === 2 || back === 2 || front === 1 || back === 1 ) {
+                  var $color1 = $( ':input[name="step2Attribute_Value_Color_One_' + elId + '"]:visible' );
+                  var $color2 = $( ':input[name="step2Attribute_Value_Color_Two_' + elId + '"]:visible' );
+                  var $color1pms = $( ':input[name="step2Attribute_Value_Color_One_PMS_' + elId + '"]:checked' );
+                  var $color2pms = $( ':input[name="step2Attribute_Value_Color_Two_PMS_' + elId + '"]:checked' );
+                  var $color1pmscode = $( ':input[name="step2Attribute_Value_Color_One_PMS_Code_' + elId + '"]:visible' );
+                  var $color2pmscode = $( ':input[name="step2Attribute_Value_Color_Two_PMS_Code_' + elId + '"]:visible' );
+                  var $backcoloruse = $( ':input[name="step2Attribute_Value_Back_Color_Use_' + elId + '"]:visible' );
+                  var getColor = function( opt, backSide ) {
+                    var ret = "";
+                    if( opt === 1 || opt === 2 ) {
+                      ret = [];
+                      for( var i = 0; i < opt; i++ ) {
+                        if( opt === 1 && backSide ) {
+                          if( $backcoloruse.length ) {
+                            var useSide = $backcoloruse.val();
+                            if( useSide != "Color #2" ) useSide = "Color #1";
+                            if( useSide === "Color #2" && ! $color2.length ) useSide = "Color #1";
+                            if( useSide === "Color #2" ) i++;
+                          }
+                        }
+                        var val = ( i === 0 ) ? $color1.val() : $color2.val();
+                        if( val !== "" ) {
+                          if( val === "Custom Ink Color" ) {
+                            var pms = ( i === 0 ) ? $color1pms.val() : $color2pms.val();
+                            if( pms === "Known" ) {
+                              pms = ( i === 0 ) ? $color1pmscode.val() : $color2pmscode.val();
+                              if( pms === "" ) val = "Unknown Custom Ink";
+                              else val = "Custom Ink - " + pms;
+                            } else {
+                              val = "Unknown Custom Ink";
+                            }
+                          }
+                          ret.push( val );
+                        }
+                      }
+                      ret = ret.join( '; ');
+                    }
+                    return ret;
+                  };
+                  var fExtra = getColor( front, false );
+                  var bExtra = getColor( back, true );
+                  if( front === back ) bExtra = "";
+                  var extra = "";
+                  if( fExtra !== "" || bExtra !== "" ) {
+                    extra = " (" + fExtra;
+                    if( fExtra !== "" && bExtra !== "" ) extra += " / ";
+                    extra += bExtra + ")";
+                  }
+                  val += extra;
+                }
+              }
+            }
+            return false;
+          }
+        } else {
+          val = $(this).val();
+        }
+      });
+      if( Array.isArray( val ) ) {
+        val2 = [];
+        for( var i = 0; i < val.length; i++ ) {
+          var v = val[i].trim();
+          if( v !== null && v !== "" ) val2.push( v );
+        }
+        val = val2.join( '; ' );
+      }
+      val = val.trim();
+    }
+    if( ! isColor ) {
+      var $dimen1 = $(':input[name="step2Attribute_Value_Dimension1_'+elId+'"]:visible');
+      var $dimen2 = $(':input[name="step2Attribute_Value_Dimension2_'+elId+'"]:visible');
+      var $other = $(':input[name="step2Attribute_Value_Other_'+elId+'"]:visible');
+      var $combo = $(':input[name^="step2Attribute_Value_Option2_'+elId+'"]:visible');
+      if( $dimen1.length && $dimen2.length && $dimen1.val() !== "" && $dimen2.val() !== "" ) {
+        var units = $dimen1.attr( 'data-units' );
+        var dim1 = parseFloat( $dimen1.val().trim() );
+        var dim2 = parseFloat( $dimen2.val().trim() );
+        if( ! isNaN( dim1 ) && ! isNaN( dim2 ) && dim1 > 0 && dim2 > 0 ) {
+          if( ! units || units === "" ) units = "in";
+          if( val === null ) val = "";
+          if( val !== "" ) val += " -- ";
+          val += dim1 + units + " x " + dim2 + units;
+        }
+      } else {
+        if( $other.length && $other.val() !== "" ) {
+          var other = $other.val().trim();
+          if( other !== "" ) {
+            if( val === null ) val = "";
+            if( val !== "" ) val += " -- ";
+            val += other;
+          }
+        }
+        if( $combo.length && $combo.val() !== "" ) {
+          var combo = $combo.val().trim();
+          if( combo !== "" ) {
+            var label = $combo.attr( 'data-label' );
+            if( ! label ) label = "";
+            label = label.trim();
+            if( label !== "" ) label += " ";
+            combo = label + combo;
+            if( val === null ) val = "";
+            if( val !== "" ) val += " -- ";
+            val += combo;
+          }
+        }
+      }
+    }
+    ret.value = val.trim();
+  }
+  return ret;
+}
+
+var STOP_INFINITE_LOOP=false; // possible Chrome bug related to the 'blur' event
+$(document)
+
+	.on('click', '.left.bottom a.loadEditor', function (e) {
+		$('#productInfo').find('a#edit_template').trigger('click');
+	})
+
+	.on( 'blur', 'input.datepicker', function(e) {
+		validDate( $(this) );
+	})
+
+	/** log in first **/
+	.on('focus', "#accountInfo input", function (e) {
+		$(this).siblings('span').addClass('showinie');
+	})
+	.on('blur', "#accountInfo input", function (e) {
+		$(this).siblings('span').removeClass('showinie');
+	})
+	.on('click', "#productInfo a[id|=login]", function (e) {
+		e.preventDefault();
+		if ($('#login-form').is(':visible') || $('#accountForm').is(':visible')) {
+			return false;
+		}
+		$pricingForm = $('.pricing_form');
+		formValidated = validateForm($pricingForm);
+		if (formValidated) {
+			$('#accountInfo').slideDown(function () {
+				accountInfoBottom = $(this).offset().top + $(this).outerHeight();
+				windowHeight = $(window).height();
+				windowBottom = $(window).scrollTop() + windowHeight;
+				if (accountInfoBottom > windowBottom) {
+					var extra = ($('#dockable').length > 0) ? 110 : 75;
+					$('body,html,document').animate({scrollTop: accountInfoBottom - windowHeight + extra}, 1000);
+				}
+				$('#dockable').find('.actions').slideUp();
+				$('#accountInfo').find('input[type=text],input[type=email]').eq(0).focus();
+			});
+			$('div.actions').css('opacity', 0.4);
+			$('#accountInfo a.button').hide().removeClass('active');
+			command = $(this).prop('id').split('-')[1];
+			$('#' + command).show().addClass('active');
+		} else { // Error in validation
+			$pricingForm.trigger('validation_error');
+		}
+	})
+	.on('focus', "#productInfo #accountInfo #accountCheck", function (e) {
+        STOP_INFINITE_LOOP=false;
+    })
+	.on('blur', "#productInfo #accountInfo #accountCheck", function (e) {
+		$('#accountExists').slideUp();
+		$('#signin_username').val($(this).val());
+		if ($(this).val() != '') {
+			$thisForm = $(this).closest('form');
+			$thisForm.trigger('account_check');
+		}
+	})
+	.on('account_check', "#productInfo #accountForm", function (e) {
+        if(!STOP_INFINITE_LOOP) {
+            STOP_INFINITE_LOOP = true;
+            $instance = $(this);
+            $.post("json.iml", "mdl=ecommerce/account_check.aj&CONTACT_Email=" + $instance.find('input[name=CONTACT_Email]').val(), function (data) {
+                var event = $.Event(data.status);
+                $instance.trigger(event, data);
+            }, 'json');
+        }
+	})
+	.on('account_exists', "#productInfo #accountForm", function (e, data) {
+		firstName = (data.First_Name != "") ? data.First_Name : $('input[name=CONTACT_First_Name]').val();
+		fullName = (data.Full_Name != "") ? data.Full_Name : $('input[name=CONTACT_First_Name]').val() + " " + $('input[name=CONTACT_Last_Name]').val();
+		if (firstName != '') {
+			$('#show-first_name').text(' ' + firstName);
+		}
+		if (fullName != '') {
+			$('#show-full_name').text('Not ' + fullName);
+		}
+		$('#accountExists').slideDown();
+		$('#accountInfo #loginAction').slideUp();
+		$('#accountForm').slideUp();
+		$('#loginInfo').slideDown();
+		$('input#signin_password').focus();
+	})
+	.on('no_account_exists', "#productInfo #accountForm", function (e) {
+		$('#accountExists').slideUp();
+		$('#accountInfo #loginAction').slideDown();
+	})
+	/* $('#accountExists').on('click', "a", function(e){
+	 $('#accountForm').slideUp();
+	 $('#loginInfo').slideDown();
+	 }); */
+	.on('click', '#newAccount a', function (e) {
+		e.preventDefault();
+		$('#accountForm, #loginAction').slideDown();
+		$('#loginInfo').slideUp();
+		$('input[name=CONTACT_Email]').val('').blur().focus();
+	})
+	.on('success', "#productInfo #login-form, #productInfo #accountForm", function (e) {
+		$('#accountForm').remove(); // User is logged in and/or account is created, so remove the create account form to prepare the way to present the estimate or place the order
+		$('#accountInfo a.active.button').trigger($.Event("click", {SSID: e.SSID})); // fire a button click on whichever button (order or estimate) is the one that's active
+		$('#dockable').fadeOut();
+		if ($('#accountInfo.showLoginForm').length > 0) {
+			window.location.reload();
+		}
+	})
+	.on('pending', "#productInfo #login-form, #productInfo #accountForm", function (e) {
+		var $this = $(this);
+		$('#productInfo').find('>p').first().slideUp(function () {
+			$('#productInfo').empty().append($('<p id="accountPending"><strong>' + (($this.is('#login-form')) ? 'Welcome back, ' : 'Hey, ') + e.First_Name + '!</strong><br>Your account ' + (($this.is('#login-form')) ? 'is still ' : 'has been created and is ') + 'pending approval. We\'ll let you know when your account has been approved. In the meantime, please feel free to explore the rest of our website. If you need immediate assistance, give us a call at <span style="white-space:nowrap;">' + e.Shop_Phone + '.</span></p>'));
+			reloadAccountTab();
+		});
+	})
+
+	/**  submit form if it validates **/
+	.on('click', '#productInfo #request_quote, #productInfo #request_quote_on_behalf, #productInfo #place_order, #productInfo #edit_template, #productInfo #start_template, #productInfo #place_quick_order, #productInfo #override_order', function (e) {
+		e.preventDefault();
+    var canProcess = true;
+    if( $(this).is( '.price-loading' ) ) canProcess = false; // pricing is loading .... wait 
+    if( $(this).is( '.harmony_error' ) ) canProcess = false; // printer's plan pricing has errored out ... handle this in the canProcess else 
+    if( $(this).is( '.pricingNAhidden' ) ) canProcess = false; // this button is supposed to be hidden ... don't let the user click it
+    if( ( $(this).is( '#request_quote' )||$(this).is('#request_quote_on_behalf') ) && $('input[name="InstantPricing_Total"]').length ) {
+      var price = parseFloat( $( 'input[name="InstantPricing_Total"]' ).val() );
+      if( ! isNaN( price ) && price > 0 ) canProcess = false; // we have a valid price ... don't allow someone to request an estimate 
+    }
+    if( typeof ody === "object" && ody !== null && ody.price_check ) canProcess = false; // odyssey pricing is loading ... wait 
+    if( typeof pp === "object" && pp !== null && pp.priceLoading ) canProcess = false; // printer's plan pricing is loading ... wait 
+    if( ! canProcess ) log( 'cannot process this request ... please wait' );
+		if( canProcess ) {
+			$('a.price-loading').removeClass('price-loading');
+			$('a.retry3').removeClass('retry3');
+			$pricingForm = $('.pricing_form');
+			$SSID = (e.SSID && e.SSID != "" && e.SSID.toUpperCase() != "NULL") ? e.SSID : null;
+			if (!$(this).is('#place_quick_order')) {
+				updateColorSpecs($pricingForm);
+			}
+			if ($(this).is('#edit_template') || $(this).is('#start_template') || $(this).is('#place_quick_order')) {
+				formValidated = true;
+			} else {
+				formValidated = validateForm($pricingForm);
+			}
+			if (formValidated) {
+				var data = null;
+				var $this = $(this);
+				if ($('input[name=MIS_Template_ID].waiting').length == 1 && typeof get_harmony_elements == "function") {
+					data = get_harmony_elements();
+				}
+				if (data != null) {
+					$.post('json.iml', data, function (rdata) {
+						if (rdata.hasOwnProperty('Template_ID')) {
+							$('input[name=MIS_Template_ID]').val(rdata.Template_ID);
+						}
+						if ($SSID != null && $SSID.toUpperCase() != "NULL") {
+							$('<input>').attr({
+								type: 'hidden',
+								name: 'SSID',
+								value: $SSID
+							}).appendTo('form.pricing_form');
+						}
+						submitOrder($this);
+					}, 'json');
+				} else {
+					if ($SSID != null && $SSID.toUpperCase() != "NULL") {
+						$('<input>').attr({type: 'hidden', name: 'SSID', value: $SSID}).appendTo('form.pricing_form');
+					}
+					submitOrder($this);
+				}
+			} else { // Error in validation
+				$pricingForm.trigger('validation_error');
+			}
+		} else if ($(this).is('.harmony_error')) {
+			$('form.pricing_form[mis_enabled]').find('[data-category_id],[question_id],[isqty], select.category_id').eq(0).trigger('change');
+			$(this).removeClass('harmony_error').blur();
+			connectionErrors++;
+		}
+	})
+	.on('place_order edit_template start_template place_quick_order override_order', "#productInfo .pricing_form", function (e) {  // Add job to cart and load cart popup
+		filesInQueue++;
+		if (filesInQueue > 1) {
+			$('.file_box.no_file_selected, #accountInfo').slideUp();
+			$(this).find('.actions').fadeTo(1000, 0.1, function () {
+				$(this).html('<h2>Files Uploading, please wait...</h2>').fadeTo(1000, 1, function () {
+					$('#dockable').show();
+				});
+				$('.custom_quote_links').css('opacity', 0);
+				var $fileWidgets = $('.file_widget');
+				$('.progress', $fileWidgets.not('.ready_to_send')).removeClass('stealth_upload');
+				$('.status', $fileWidgets).removeClass('stealth_upload');
+				$('.cancel_file', $fileWidgets).remove();
+			});
+		}
+		var $instance = $(this);
+		$('body').queue('send_file', function (next) {
+			var data = $('.file_box input[name=file_name]').serializeArray();
+			var APPROVER_CHANGES = $('input[name=APPROVER_CHANGES]', $instance).val();
+			var ORDER_Order_ID = $('input[name=ORDER_Order_ID]', $instance).val();
+			var EDIT_Job_ID = $('input[name=EDIT_Job_ID]', $instance).val();
+			$('.file_box input').remove();
+			var $SSID = ($instance.find('input[name=SSID]').length > 0) ? $instance.find('input[name=SSID]').val() : null;
+			$instance.find('input[type=checkbox]:checked:not(.hidden_input)').each(function () {
+				var $val = $(this).val();
+				if ($(this).closest('div').find('div.SUBOPTION').length > 0 && $(this).closest('div').find('div.SUBOPTION').find('input[type=text]').length > 0 && $(this).closest('div').find('div.SUBOPTION').find('input[type=text]').val() != "") {
+					$val = $val + " -- ";
+					var $label = $(this).closest('div').find('div.SUBOPTION').text().trim();
+					if ($label != "") {
+						$label = $label + " ";
+					}
+					$val = $val + $label + $(this).closest('div').find('div.SUBOPTION').find('input[type=text]').val();
+				}
+				$(this).val($val);
+			});
+			data = data.concat($instance.find(':input:not(.hidden_input)').serializeArray()).concat(
+				[{'name': 'mdl', 'value': 'ecommerce/cartid.aj'},
+					{'name': 'FORM_Type_ID', 'value': '2'},
+					{'name': 'JOB_Action', 'value': e.type},
+					{'name': 'pid', 'value': PREFS.Site_Dir}
+				]
+			);
+			if ($('.pricing_form').attr('Product_KEY')) {
+				if ($('.pricing_form').find('input[name=JOB_Job_ID]').length > 0) {
+					data[data.length] = {
+						'name': 'update_mdl',
+						'value': PREFS.OPC_Version_Path + 'job_ticket/update_product_order.mdl'
+					};
+				} else {
+					data[data.length] = {
+						'name': 'update_mdl',
+						'value': PREFS.OPC_Version_Path + 'Form_Builder2/add_docLib.mdl'
+					};
+				}
+				data[data.length] = {'name': 'FORM_Ref_Level', 'value': '7'};
+				data[data.length] = {'name': 'FORM_Ref_ID', 'value': $('.pricing_form').attr('Product_KEY')};
+        
+        if( $('input[name="InstantPricing_Total"]').length && $('tbody[dataname="breakdown"]').length ) { // handle subtotals 
+          var total = parseFloat( $('input[name="InstantPricing_Total"]').val() );
+          if( ! isNaN( total ) && total > 0 ) { // make sure we have an actual price 
+            var subtotals = [];
+            $('tbody[dataname="breakdown"]').find( '>tr' ).each( function(inx) { // and subtotals
+              var $name = $(this).find( '>td:first-child' );
+              if( $name.find( '>span[data-element_ids]' ).length ) $name = $name.find( '>span[data-element_ids]' ); // table pricing 
+              else if( ! $name.is( '[dataname]' ) ) $name = []; // eliminate all other pricing types except instant pricing calculators
+              if( $name.length ) { // should leave just table pricing and instant pricing calculators
+                var name = $name.html().replace(/\t|\n|\:/g,' ').trim().replace( /\<br( )?(\/)?\>/g, "\n" );
+                var amt = null;
+                var eid = 0;
+                var sort = inx+1;
+                if( $(this).find( 'output' ).length ) {
+                  amt = parseFloat( $(this).find( 'output' ).text() );
+                  eid = parseInt( $(this).find( 'output' ).attr( 'data-sub_eid' ) );
+                } else if( $(this).find( 'span[dataname="value"]' ).length ) {
+                  amt = parseFloat( $(this).find( 'span[dataname="value"]').text() );
+                  eid = parseInt( $(this).find( 'span[dataname="value"]' ).attr( 'data-sub_eid' ) );
+                }
+                if( ! isNaN( amt ) && amt > 0 ) {
+                  if( isNaN( eid ) ) eid = 0;
+                  subtotals.push({
+                    Label: name,
+                    Amount: amt,
+                    Sort: sort,
+                    Element_ID: eid
+                  });
+                }
+              }
+            });
+            subtotals.sort( function( a, b ) { // this is a holdover from when we didn't presort the subtotals -- leaving it in in case we go back to that
+              if( a.Sort > b.Sort ) return 1;
+              if( a.Sort < b.Sort ) return -1;
+              return 0;
+            });
+            for( var i = 0; i < subtotals.length; i++ ) {
+              subtotals[i].Sort = i+1;
+            }
+            if( subtotals.length ) { // if we have subtotals, include them with our data 
+              data[data.length] = {
+                'name': 'JOB_Subtotals',
+                'value': JSON.stringify( subtotals )
+              };
+            }
+          }
+        } // end of subtotal code
+			} else if (e.type == "place_quick_order") {
+				data[data.length] = {
+					'name': 'update_mdl',
+					'value': PREFS.OPC_Version_Path + 'orderView/add_multiple.mdl'
+				};
+			} else {
+				data = data.concat($('input[form=instantPrice]').serializeArray());
+				data[data.length] = {
+					'name': 'update_mdl',
+					'value': PREFS.OPC_Version_Path + 'Form_Builder2/create_job_ticket.mdl'
+				};
+				data[data.length] = {'name': 'FORM_Ref_Level', 'value': '13'};
+				data[data.length] = {'name': 'FORM_Ref_ID', 'value': $('.pricing_form').attr('ref_id')};
+			}
+
+			$.post('json.iml', data, function (rdata) {
+				if (rdata.hasOwnProperty('INVALID_QUANTITY') && rdata.INVALID_QUANTITY) {
+					// invalid quantity --- HOW DARE YOU!!!!!!!!!
+					$(':input[isQty]').addClass('msg-invalid').focus();
+					filesInQueue--;
+					$pricingForm.trigger('validation_error');
+				} else if (!isNaN(APPROVER_CHANGES * 1) && APPROVER_CHANGES * 1 > 0) {
+					var PATHNAME = ( APPROVER_CHANGES == 2 ) ? 'company/workflow' : ( ( APPROVER_CHANGES == 3 ) ? 'branch/workflow' : 'account' );
+					window.location.href = PATHNAME + '/order/' + ORDER_Order_ID + '?AC=' + EDIT_Job_ID;
+				} else if (e.type == "start_template") { // PostNet_Entry_Level
+					if (rdata.JOB_Job_ID) {
+						var jDATA = {};
+						jDATA.Job_ID = rdata.JOB_Job_ID;
+						var path2 = window.location.href.replace(PREFS.WEBBASE, '/').replace(/\/printing(_)?\//, '').replace(/\//, '');
+						if ($('form#design-online').length == 0) {
+							var form = $('<form id="design-online" action="' + PREFS.WEBBASE + 'design-online/' + path2 + '/" method="post"></form>');
+							form.append($('<input type="hidden" name="PATH_1" value="design-online" />'));
+							form.append($('<input type="hidden" name="PATH_2" value="' + path2 + '" />'));
+							form.append($('<input type="hidden" name="DesignEdit_JOB" value="" />'));
+							form.append($('<input type="hidden" name="DEBUG" value="1" />'));
+							$('body').append(form);
+						}
+						$('form#design-online').find('input[name=DesignEdit_JOB]').val(JSON.stringify(jDATA));
+						$('form#design-online').submit();
+					} else {
+						window.location.href = window.location.href.replace(/\/printing(_)?\//, '/design-online/');
+					}
+				} else if (e.type == "edit_template") {
+					loadTemplate($('input[name=JOB_Template_ID]').val(), $('input[name=JOB_Instance_ID]').val(), rdata.JOB_Job_ID);
+				} else if (e.type == "override_order"){
+					window.location.href = "manage/workflow/job/" + EDIT_Job_ID;
+				} else {
+					Boxy.load('ajax_jquery.iml?mdl=ecommerce/popup-cart_lite.mdl&DEBUG=1&ORDER_Order_ID=' + rdata.ORDER_Order_ID + '&cXML_ID=' + PREFS.cXML_ID + (($SSID != null && $SSID.toUpperCase() != "NULL") ? '&SSID=' + $SSID : ''), {
+						title: 'Shopping Cart',
+						closeable: true,
+						modal: true,
+						cache: true,
+						hideFade: true,
+						hideShrink: '',
+						afterShow: function () {
+							formatBoxy();
+							var myOrder = null;
+							myOrder = new OrderObject($('#orderview'));
+							$('a.loading').removeClass('loading');
+						},
+						afterHide: function () {
+							location.reload(true);
+						}
+					});
+				}
+			}, 'json');
+		});
+
+		if (filesInQueue == 1) {
+				$('body').dequeue('send_file');
+		}
+	})
+	.on('success', "#submit_cart", function (e) {
+		var $SSID = ($(this).find('input[name=SSID]').length > 0) ? $(this).find('input[name=SSID]').val() : null;
+		Boxy.ask('<h4>Thank you!</h4><p>Your request has been sent.<br>We will be in touch, with details, very soon.</p>', ["Home", "Your Account", "Continue Shopping"],
+		function (val) {
+			if (val == 'Home') {
+				window.location = PREFS.WEBBASE + (($SSID != null && $SSID != "" && $SSID.toUpperCase() != "NULL") ? '?SSID=' + $SSID : '');
+			} else if (val == 'Your Account') {
+				window.location = PREFS.WEBBASE + 'account/' + (($SSID != null && $SSID != "" && $SSID.toUpperCase() != "NULL") ? '?SSID=' + $SSID : '');
+			} else if (val == 'Continue Shopping') {
+				window.location = PREFS.WEBBASE + PREFS.Continue_Shopping_Link + (($SSID != null && $SSID != "" && $SSID.toUpperCase() != "NULL") ? '?SSID=' + $SSID : '');
+			}
+		}, {
+			title: 'Order Received',
+			modal: true,
+			cache: true,
+			hideFade: true,
+			hideShrink: '',
+			afterShow: new Function('formatBoxy()')
+		});
+	})
+	.on('request_quote request_quote_on_behalf', "#productInfo .pricing_form", function (e) {  // Submit job as an estimate request
+		filesInQueue++;
+		if (filesInQueue > 1) {
+			$('.file_box.no_file_selected, #accountInfo').slideUp();
+			$(this).find('.actions').fadeTo(1000, 0.1, function () {
+				$(this).html('<h2>Files Uploading, please wait...</h2>').fadeTo(1000, 1, function () {
+					$('#dockable').show();
+				});
+				$('.custom_quote_links').css('opacity', 0);
+				var $fileWidgets = $('.file_widget');
+				$('.progress', $fileWidgets.not('.ready_to_send')).removeClass('stealth_upload');
+				$('.status', $fileWidgets).removeClass('stealth_upload');
+				$('.cancel_file', $fileWidgets).remove();
+			});
+		}
+		var $instance = $(this);
+		$('body').queue('send_file', function (next) {
+			var data = $('.file_box input[name=file_name]').serializeArray();
+			var $SSID = ($instance.find('input[name=SSID]').length > 0) ? $instance.find('input[name=SSID]').val() : null;
+			$('.file_box input').remove();
+			data = data.concat($instance.find(':input').serializeArray()).concat(
+				[
+					{
+						'name': 'update_mdl',
+						'value': (($('.pricing_form').attr('Product_KEY')) ? PREFS.OPC_Version_Path + 'Form_Builder2/add_docLib.mdl' : PREFS.OPC_Version_Path + 'Form_Builder2/create_job_ticket.mdl')
+					},
+					{'name': 'mdl', 'value': 'ecommerce/cartid.aj'},
+					{'name': 'FORM_Type_ID', 'value': '1'},
+					{'name': 'FORM_Ref_Level', 'value': (($('.pricing_form').attr('Product_KEY')) ? '7' : '13')},
+					{
+						'name': 'FORM_Ref_ID',
+						'value': (($('.pricing_form').attr('Product_KEY')) ? $('.pricing_form').attr('Product_KEY') : $('.pricing_form').attr('ref_id'))
+					},
+					{'name': 'pid', 'value': PREFS.Site_Dir}
+				]);
+			if( e.type === "request_quote_on_behalf" ) {
+				Boxy.load( "ajax_jquery.iml?mdl="+PREFS.OPC_Version_Path+"account/popup-assign_estimate.mdl&DEBUG=1", {
+					title: 'Assign Estimate to Customer',
+					closeable: true,
+					modal: true,
+					cache: true,
+					hideFade: true,
+					hideShrink: '',
+					afterShow: function () {
+						formatBoxy();
+						est_data = data;
+						$('a.loading').removeClass('loading');
+						if( typeof peopleList === "undefined" && ! peopleSearchLoaded ) {
+							$.getScript( PREFS.OPC_Version_Path + 'js/adminPeopleSearch.js' );
+						}
+					},
+					afterHide: function() {
+						est_data = null;
+            peopleSearchLoaded = true;
+            filesInQueue--;
+					}
+				});
+			} else {
+				$.post('json.iml', data, function (data) {
+					Boxy.ask('<h4>Thank you!</h4><p>' + quoteSentMessage + '</p>', ["Home", "Your Account", "Continue Shopping"], function (val) {
+						if (val == 'Home') {
+							window.location = PREFS.WEBBASE + (($SSID != null && $SSID != "" && $SSID.toUpperCase() != "NULL") ? '?SSID=' + $SSID : '');
+						} else if (val == 'Your Account') {
+							window.location = PREFS.WEBBASE + 'account/' + (($SSID != null && $SSID != "" && $SSID.toUpperCase() != "NULL") ? '?SSID=' + $SSID : '');
+						} else if (val == 'Continue Shopping') {
+							window.location = PREFS.WEBBASE + PREFS.Continue_Shopping_Link + (($SSID != null && $SSID != "" && $SSID.toUpperCase() != "NULL") ? '?SSID=' + $SSID : '');
+						}
+					}, {
+						title: 'Quote Request Received',
+						modal: true,
+						cache: true,
+						hideFade: true,
+						hideShrink: '',
+						afterShow: new Function('formatBoxy()')
+					});
+				}, 'json');
+			}
+		});
+
+		if (filesInQueue == 1) {
+			$('body').dequeue('send_file');
+		}
+	})
+
+	.on('change', "#instantPrice .qty input,#instantPrice .qty select", function () {
+		$('#Qty').val($(this).val());
+		$('#Qty').trigger('change');
+	})
+	.on('keyup', "#instantPrice .qty input,#instantPrice .qty select", function () {
+		 $('#Qty').val($(this).val());
+	})
+	.on('keyup update', ".pricing_form #Qty", function () {
+		$('#instantPrice .qty input,#instantPrice .qty select').val($(this).val());
+	})
+	.on('change', '.pricing_form select#Qty', function () {
+		$('#instantPrice .qty input,#instantPrice .qty select').val($(this).val());
+	})
+	.on('mouseover', '.cart-help.text-based', function () {
+		var $this = $(this);
+		$this.find('.cart-help-content').css({
+			"position": "fixed",
+			"left": "auto",
+			"top": "auto",
+			"bottom": $(window).height() + $(window).scrollTop() - $this.offset().top - 20
+		});
+	})
+	.on('click', 'a.remove_file', function (e) {
+		e.preventDefault();
+		var $this = $(this);
+		var jobID = $this.data('job_id');
+		var filename = $this.data('filename');
+		if (jobID && !isNaN(jobID) && jobID > 0 && filename && filename != "" && filename != null) {
+			if (confirm("Are you sure you want to remove this file? This action cannot be undone.")) {
+				var data = {
+					"JOB_Job_ID": jobID,
+					"JOB_File_Name": filename,
+					"pid": PREFS.Site_Dir,
+					"mdl": PREFS.OPC_Version_Path + "job_ticket/removeFile.aj"
+				};
+				$.post('json.iml', data, function (rdata) {
+					if (rdata.hasOwnProperty('success')) {
+						$this.closest('.file_box').fadeOut(function () {
+							$(this).remove();
+						});
+					}
+				}, 'json');
+			}
+		}
+	})
+
+/** This section of code handles events for both system forms and consolidated order forms **/
+
+	.on('click', 'input.turnaroundOther', function () {
+		if ($(this).is('input[type=radio]')/* &&$('input[name=TurnaroundTimes]').length>1 */) {
+			$(this).closest('div').find('span input[type=text]').focus();
+	}
+	})
+	.on('focus', 'input.turnaroundOther', function () {
+		if ($(this).is('input[type=text]')) {
+			$(this).closest('div').find('input[type=radio]').prop('checked', true);
+			/*$(this).datepicker("option","minDate",0);*/
+		}
+	})
+	.on('click', 'input.turnaroundOption', function () {
+		$(this).closest('li').find('input.datepicker[type=text]').val('');
+})
+
+/************** START Consolidated Order Form Specific Functionality **************/
+
+/** Color option code for consolidated order forms **/
+	.on('change', '.coloroptions input[data-colors]', function () {
+		var container = $(this).closest('.colorpickershell');
+		var parent = $(this).parent();
+		var colors = $(this).data('colors').split('/');
+		var f_color = colors[0];
+		var b_color = (colors.length > 1) ? colors[1] : "0";
+		var required = ($(this).is('[required]')) ? "required" : false;
+		var inputs = [];
+		$('.twocolor', container).find(':input').each(function () {
+			if ($(this).is('[required]')) {
+				$(this).prop('required', false);
+				$(this).removeProp('required');
+			}
+			inputs.push({"name": $(this).attr('name'), "value": $(this).val(), "checked": $(this).prop('checked')});
+		});
+		var clone = $('.twocolor', container).clone(true);
+		for (i = 0; i < inputs.length; i++) {
+			var input = clone.find(':input[name=' + inputs[i].name + ']');
+			if (input.length > 0) {
+				if (input.is(':radio') || input.is(':checkbox')) {
+					input.prop('checked', inputs[i].checked);
+				} else {
+					input.val(inputs[i].value);
+				}
+				if (input.is('select.color_choices') && ((f_color == 2 || b_color == 2) || input.closest('.colorone').length > 0)) {
+					input.prop("required", required);
+				}
+			}
+		}
+		$('.twocolor', container).slideUp(function () {
+			if (f_color == 1 || f_color == 2 || b_color == 1 || b_color == 2) {
+				$(this).remove();
+			} else {
+				$(this).find('select.color_choices').each(function () {
+					$(this).val('').trigger('change');
+				});
+				$(this).find('div.other_field').each(function () {
+					$(this).css({"display": "none"});
+				});
+			}
+			if (typeof InstantPricingList === "object" && InstantPricingList.length > 0) {
+				InstantPricingList[0].recalculateForm();
+			}
+		});
+		if (f_color == 1 || f_color == 2 || b_color == 1 || b_color == 2) {
+			parent.after(clone);
+			if (typeof InstantPricingList === "object" && InstantPricingList.length > 0) {
+				clone.find('select.color_choices').each(function () {
+					Evt.addEventListener(this, "change", function (event) {
+						var ev = new Evt(event);
+						InstantPricingList[0].recalculateForm(ev.source);
+					}, false);
+				});
+			}
+			if (f_color == 2 || b_color == 2) {
+				clone.find('.colortwo').show();
+			} else {
+				clone.find('.colortwo').hide().find('select.color_choices').val('').trigger($.Event('change', {noCheck: 1})).end().find('div.other_field').css({"display": "none"});
+			}
+			clone.slideDown();
+			if (f_color == 2 && b_color == 1) {
+				clone.find('.BackSideColorPicker').show();
+			} else {
+				clone.find('.BackSideColorPicker').hide();
+			}
+		}
+		if ($(this).is('[data-front_img]')) {
+			var f_name = (f_color == 4) ? "Full-Color" : ((f_color == 2) ? "Two-Color" : ((f_color == 1) ? "One-Color" : ((f_color == 0) ? "Blank" : "Black Ink")));
+			var b_name = (b_color == 4) ? "Full-Color" : ((b_color == 2) ? "Two-Color" : ((b_color == 1) ? "One-Color" : (b_color == 0 ? "Unprinted" : "Black Ink")));
+			var $front_thumb = $(this).closest('li').find('.colorpicker-images.frontside');
+			$front_thumb.find('img').attr('src', $(this).data('front_img'));
+			$front_thumb.find('figcaption>span').text(f_name);
+			if ($(this).is('[data-back_img]')) {
+				$front_thumb.next().find('img').attr('src', $(this).data('back_img'));
+				$front_thumb.next().find('figcaption>span').text(b_name);
+			}
+		}
+		if (colorsAreSelected(container)) {
+			$('.colorselected', container).show();
+		} else {
+			$('.colorselected:visible', container).slideUp(200);
+		}
+	})
+	.on('change', 'input.use_custom', function (e) {
+		var container = $(this).closest('.colorpickershell');
+		if (!e.skip) {
+			if ($(this).is(':checked')) {
+				if ($(this).closest('div').find('select.color_choices').find('option[data-custom]').length > 0) {
+					$(this).closest('div').find('select.color_choices').val($(this).closest('div').find('select.color_choices').find('option[data-custom]').val());
+				}
+			} else {
+				$(this).closest('div').find('select.color_choices').val('');
+			}
+			if (typeof InstantPricingList === "object" && InstantPricingList.length > 0) {
+				InstantPricingList[0].recalculateForm();
+			}
+		}
+		if (!$(this).is(':checked')) {
+			$(this).closest('div').find('.other_field').trigger('hide');
+		}
+		if (!e.skip) {
+			$('.colorselected:visible', container).slideUp(200);
+		}
+	})
+	.on('change', 'select.color_choices', function (e) {
+		var container = $(this).closest('.colorpickershell');
+		if ($(this).find('option:selected').is('[data-custom]')) {
+			$(this).closest('div').find('input.use_custom').prop('checked', 'checked');
+		} else {
+			$(this).closest('div').find('input.use_custom').prop('checked', false).trigger($.Event('change', {skip: 1}));
+		}
+		if (colorsAreSelected(container)) {
+			$('.colorselected:hidden', container).slideDown(200);
+		} else {
+			$('.colorselected:visible', container).slideUp(200);
+		}
+	})
+	.on('change', 'input[name^=Attribute_Value_Color_One_PMS_]:visible, input[name^=Attribute_Value_Color_Two_PMS_]:visible', function () {
+			var container = $(this).closest('.colorpickershell');
+			if (colorsAreSelected(container)) {
+					$('.colorselected:hidden', container).slideDown(200);
+			} else {
+					$('.colorselected:visible', container).slideUp(200);
+			}
+	})
+
+	/** Odyssey task notes show/hide functionality **/
+	.on( 'change', '#product_order[product_key] :input', function(e) {
+		if( $(this).closest( 'li' ).length > 0 && $(this).closest( 'li' ).find( '.prod_notes' ).length > 0 && ($(this).is( 'select' ) || $(this).is( ':radio' ) ) ) {
+			var $notes = $(this).closest( 'li' ).find( '.prod_notes' );
+			var show = ( $(this).is( 'select' ) ) ? $(this).find( 'option:selected' ).data( 'allow_notes' ) : $(this).data( 'allow_notes' );
+			if( show && show == 1 ) {
+				$notes.slideDown(function() {
+					$(this).find( 'textarea' ).focus();
+				});
+			} else {
+				$notes.slideUp(function() {
+					$(this).find( 'textarea' ).val('');
+				});
+			}
+		}
+	})
+
+	/** Odyssey paper color dropdown functionality **/
+
+	.on( 'change', '#product_order[product_key] :input[data-ody_type="paper"]', function(e) {
+		var $this = ( $(this).is( 'select' ) ) ? $(this).find( 'option:selected' ) : $(this);
+		var $cpicker = $this.closest( '.form_builder_container' ).find( 'div.ody_paper_color' );
+		var colors = $this.data( 'ody_colors' );
+		var def_color = $this.data( 'ody_default_color' );
+		if( ! def_color || def_color == "" ) def_color = "white";
+		if( $cpicker.length > 0 ) {
+			if( $this.is( ':radio' ) ) {
+				var $dupe = $cpicker.clone( true );
+				$dupe.css('display','none' ).find( 'select' ).empty();
+				$this.closest( 'div' ).append( $dupe );
+				$cpicker.slideUp( function() {
+					$(this).remove();
+				});
+			} else var $dupe = $cpicker;
+			if( ! colors || colors.indexOf( ',' ) < 0 ) {
+				$dupe.slideUp(function() {
+					$(this).find( 'select' ).empty();
+          if( colors && colors.length ) $(this).find('select').append($('<option value="'+colors+'">'+colors+'</option>'));
+				});
+			} else {
+				$dupe.find( 'select' ).empty();
+				colors = colors.split( ',' );
+				for( var i = 0; i < colors.length; i++ ) {
+					var opt = $( '<option value="' + colors[i] + '"' + ( ( def_color == colors[i] || def_color == "white" && def_color == colors[i].toLowerCase() ) ? ' selected="selected"' : '' ) + '>' + colors[i] + '</option>' );
+					$dupe.find( 'select' ).append( opt );
+				}
+				$dupe.slideDown();
+			}
+		}
+
+	})
+
+
+	/** Dependencies code for consolidated order forms **/
+	.on('change', '#product_order[product_key] :input[data-dependencies]:not(.hidden_input)', function (e) {
+		if (!e.no_update && triggerDependencies(e.currentTarget) ) {
+			var $this = ($(this).is('select')) ? $(this).find('option:selected') : $(this);
+      if( !e.triggered && $this.is('option') && typeof SELECT_LIST === "object" && SELECT_LIST.length > 0 ) {
+				for( i=0; i<SELECT_LIST.length; i++ ) {
+					if ($this.data('element_id') == SELECT_LIST[i].Element_ID) {
+						for (j = 0; j < SELECT_LIST[i].Groups.length; j++) {
+							for( k=0; k < SELECT_LIST[i].Groups[j].Options.length; k++ ) {
+								if( SELECT_LIST[i].Groups[j].Options[k].Option_ID != $this.data('option_id') ) SELECT_LIST[i].Groups[j].Options[k].Default = 0;
+								else {
+									SELECT_LIST[i].Groups[j].Options[k].Default = 1;
+								}
+							}
+						}
+					}
+				}
+			}
+			var $thisVal = $(this).val();
+			if ($this.data('dependencies') && $this.data('dependencies') != "") {
+				var $showItems = $this.data('dependencies').split(',');
+				if ($(this).is('[type=checkbox]') && !$(this).is(':checked')) {
+					for (i = 0; i < $showItems.length; i++) {
+						$showItems[i] = $showItems[i].replace(/SHOW:/, 'HYDE:'); // is that you Dr. Jeckyl?
+						$showItems[i] = $showItems[i].replace(/HIDE:/, 'SHOW:');
+						$showItems[i] = $showItems[i].replace(/HYDE:/, 'HIDE:'); // where'd you go?
+					}
+				}
+				var dLen = depCt.length;
+				for (depCt[dLen] = 0; depCt[dLen] < $showItems.length; depCt[dLen]++) {
+					$showItems[depCt[dLen]] = $showItems[depCt[dLen]].trim();
+					var $showHide = $showItems[depCt[dLen]].split(':')[0];
+					var $showGroup = $('#' + $showItems[depCt[dLen]].split(':')[1]);
+					//var $showType = $showGroup.attr('id').split('_')[0];
+					if ($showGroup.length > 0) {
+						if ($showHide.toUpperCase() == "SHOW" || $showHide.toUpperCase() == "HIDE") {
+							var $trigger = true;
+							var $dep = ($showHide.toUpperCase() == "SHOW") ? $showItems[depCt[dLen]].replace("SHOW", "HIDE") : $showItems[depCt[dLen]].replace("HIDE", "SHOW");
+							var $visEl = $(':input[data-dependencies~="' + $dep + '"]:checked:visible:not(.hidden_input)');
+							for (i = 0; i < $showItems.length; i++) {
+								if ($showItems[i].split(':')[0].toUpperCase() == "SHOW" && $('#' + $showItems[i].split(':')[1])[0] != $showGroup[0]) {
+									var isIncluded = false;
+									var container = $('#' + $showItems[i].split(':')[1]);
+									for (j = 0; j < $visEl.length; j++) {
+										if ($($visEl[j], container).length > 0) {
+											isIncluded = true;
+											break;
+										}
+									}
+									if (!isIncluded) {
+										$visEl[$visEl.length] = $('#' + $showItems[i]).find(':input[data-dependencies~=' + $dep + ']:checked');
+									}
+								}
+							}
+							for (i = 0; i < $showItems.length; i++) {
+								if ($showItems[i].split(':')[0].toUpperCase() == "HIDE" && $('#' + $showItems[i].split(':')[1])[0] != $showGroup[0]) {
+									var isIncluded = false;
+									var container = $('#' + $showItems[i].split(':')[1]);
+									for (j = 0; j < $visEl.length; j++) {
+										if ($($visEl[j], container).length > 0) {
+											isIncluded = true;
+											break;
+										}
+									}
+									if (isIncluded) {
+										$visEl.splice(j, 1);
+									}
+								}
+							}
+							if ($visEl.length > 0) {
+								$trigger = false;
+							}
+						}
+						if ( $showHide.toUpperCase() == "SHOW" && $trigger ) {
+							$wasHidden = $showGroup.is( '.hidden_group' );
+							$showGroup.removeClass( 'hidden_group' );
+							$showGroup.find( '.hidden_group, .hidden_input' ).removeClass( 'hidden_group hidden_input' ).css( { 'display': '' } );
+							$showGroup.find( ':input' ).each( function () {
+								$(this).removeClass( 'hidden_input' );
+							});
+							if( $wasHidden || $showGroup.is( 'option' ) || $showGroup.is( 'optgroup' ) || ( $showGroup.is( 'li' ) && $showGroup.find( 'select[data-element_id]' ).length > 0 ) ) {
+								if ( $showGroup.is( 'option' ) || $showGroup.is( 'optgroup' ) ) {
+										/* this is now handled separately below */
+								} else {
+									if ($showGroup.is('li') && $showGroup.find('select[data-element_id]').length > 0) {
+										if (typeof SELECT_LIST === "object" && SELECT_LIST.length > 0) {
+											var $select = $showGroup.find('select[data-element_id]').eq(0);
+											var $val = $select.val();
+											var oid = $select.find( 'option:selected' ).data( 'option_id' );
+											var $selected = false;
+											for (i = 0; i < SELECT_LIST.length; i++) {
+												if ($select.data('element_id') == SELECT_LIST[i].Element_ID) {
+													$select.empty();
+													var $select2 = [];
+													if( $select.is( '[isqty]' ) ) {
+														$select2 = $( '#dockable' ).find( 'select#priceqty' );
+														if( $select2.length > 0 ) $select2.empty();
+													}
+													for ( var j = 0; j < SELECT_LIST[i].Groups.length; j++) {
+														if (SELECT_LIST[i].Groups[j].Group_ID != "") {
+															var $parent = $('<optgroup id="GROUP_' + SELECT_LIST[i].Groups[j].Group_ID + '"' + ((SELECT_LIST[i].Groups[j].Visible == 1) ? ' label="' + SELECT_LIST[i].Groups[j].Name + '"' : '') + '></optgroup>');
+															$select.append($parent);
+														} else {
+															var $parent = $select;
+														}
+														for (var k = 0; k < SELECT_LIST[i].Groups[j].Options.length; k++) {
+															var opt = SELECT_LIST[i].Groups[j].Options[k];
+															var $option = $('<option id="OPTION_' + opt.Option_ID + '" value="' + opt.Value + '">' + opt.Value + '</option>' );
+															var $option2 = $('<option value="' + opt.Value + '">' + opt.Value + '</option>' );
+															for( var key in opt ) {
+																if( key != "Value" ) {
+																	$option.attr( 'data-' + key.toLowerCase(), opt[key] );
+																	if( key.toLowerCase() === "dependencies" ) {
+																		$option2.attr( 'data-' + key.toLowerCase(), opt[key] );
+																		if( opt[key] !== "" && $select2.length > 0 ) $select2.attr( 'data-' + key.toLowerCase(), '' );
+																	}
+																}
+															}
+															if( opt.Value == $val || ( oid && opt.Option_ID == oid ) || ( opt.Default == 1 && ! $selected ) ) {
+																$selected = true;
+																$option.prop( 'selected', 'selected' );
+																$option2.prop( 'selected', 'selected' );
+															}
+															$parent.append($option);
+															if( $select2.length > 0 ) $select2.append( $option2 );
+															if (SELECT_LIST[i].Groups[j].Options[k].Value == $val || ( oid && SELECT_LIST[i].Groups[j].Options[k].Option_ID == oid ) || ($val == "" && SELECT_LIST[i].Groups[j].Options[k].Default == 1)) {
+																$selected = true;
+															}
+														}
+													}
+												}
+											}
+										}
+									}
+									if ($showGroup.find('select[data-dependencies]').length > 0 && $showGroup.find('select[data-dependencies]').eq(0).find('option:selected').data('dependencies') != "") {
+											$showGroup.find('select[data-dependencies]').eq(0).trigger($.Event('change',{'triggered':'1'}));
+									}
+									if( $wasHidden ) {
+                    var speed = ( e.init ) ? 0 : 400;
+										$showGroup.slideDown(speed, function () {
+											if ($(this).is('div')) {
+												$(this).closest('.productfloat').find('div.divider.firstdiv').removeClass('firstdiv');
+												if ($(this).closest('.productfloat').find('div:visible').eq(0).is('.divider')) {
+													$(this).closest('.productfloat').find('div:visible').eq(0).addClass('firstdiv');
+												}
+											}
+											if ($(this).find('.tab-selector').length > 0) {
+												if ($(this).find('.tab-drop-container:visible').length > 0) {
+													$(this).find('input.populate-tab-options').prop('checked', 'checked');
+												} else {
+													$(this).find('input.remove-tab-options').prop('checked', 'checked');
+													$(this).find('.tab-drop-holder').show();
+												}
+											} else {
+												if ($(this).find('input[data-default]').length > 0 && $('input[name=' + $(this).find('input[data-default]').eq(0).attr('name') + ']:checked').length == 0) {
+													if ($('input[name=' + $(this).find('input[data-default]').eq(0).attr('name') + '][data-default=1]:not(.hidden_input)').length > 0) {
+														$('input[name=' + $(this).find('input[data-default]').eq(0).attr('name') + '][data-default=1]:not(.hidden_input)').prop('checked', 'checked').trigger($.Event('change',{'triggered':'1'}));
+													} else if ($('input[name=' + $(this).find('input[data-default]').eq(0).attr('name') + '][data-default]:not(.hidden_input)').length > 0) {
+														$('input[name=' + $(this).find('input[data-default]').eq(0).attr('name') + '][data-default]:not(.hidden_input)').eq(0).prop('checked', 'checked').trigger($.Event('change',{'triggered':'1'}));
+													}
+												}
+												$(this).find('input[type=text],textarea').each(function () {
+													if ($(this).is('[data-default]') && $(this).data('default') != "") {
+														$(this).val($(this).data('default'));
+													}
+												});
+											}
+										});
+									}
+								}
+								if( $wasHidden ) {
+									if ($showGroup.find('input[type=radio][data-required]').length > 0) {
+										var $radioName = $showGroup.find('input[type=radio][data-required]').attr('name');
+										if ($showGroup.closest('li').find('input[type=radio][name=' + $radioName + ']:checked').length == 0) {
+											$showGroup.closest('li').find('input[type=radio][name=' + $radioName + ']').eq(0).prop('checked', true);
+										}
+									}
+									$showGroup.find(':input[data-required]').each(function () {
+										$(this).prop('required', 'required');
+									});
+									if ($showGroup.is('li[data-required]')) {
+										$showGroup.addClass('required_upload');
+									}
+									if ($showGroup.is('.other_field')) {
+										$showGroup.trigger('show');
+									} else {
+										$showGroup.closest('.other_field').trigger('show');
+									}
+									$(':input[isqty]').trigger('price_update');
+								}
+							}
+						} else if ($showHide.toUpperCase() == "HIDE" && $trigger) {
+							var $radioName = ($showGroup.find('input[type=radio][required]:checked').length > 0) ? $showGroup.find('input[type=radio][data-required]').attr('name') : null;
+							$showGroup.addClass('hidden_group');
+							$showGroup.find('input.dimension_output').val('');
+							$showGroup.find(':input').each(function () {
+								$(this).addClass('hidden_input');
+							});
+							var slideRate = ($showGroup.is('option') || $showGroup.is('optgroup') || e.init) ? 0 : 400;
+							if ($showGroup.is('option') || $showGroup.is('optgroup')) {
+								/* this is now handled separately below */
+							} else {
+								$showGroup.slideUp(slideRate, function () {
+									if ($(this).is('div')) {
+										$(this).closest('.productfloat').find('div.divider.firstdiv').removeClass('firstdiv');
+										if ($(this).closest('.productfloat').find('div:visible').eq(0).is('.divider')) {
+											$(this).closest('.productfloat').find('div:visible').eq(0).addClass('firstdiv');
+										}
+										$(this).find(':input.msg-required').each(function () {
+											$(this).removeClass('msg-required');
+										});
+									}
+									$(this).css({"display": "none"});
+								});
+							}
+							$showGroup.find('input[type=radio][required],input[type=checkbox][required]').each(function () {
+								$(this).prop('required', false);
+								$(this).removeProp('required');
+							});
+							$showGroup.find('input[type=radio][data-default]').each(function () {
+								if ($(this).is(':checked')) {
+									$(this).attr('data-default', "1");
+								} else if ($('input[name=' + $(this).attr('name') + ']:checked').length > 0) {
+									$(this).attr('data-default', "0");
+								}
+							});
+							$showGroup.find('input[type=radio]:checked,input[type=checkbox]:checked').each(function () {
+								$(this).prop('checked', false);
+							});
+							if ($radioName != null) {
+								$showGroup.closest('li').find('input[type=radio][name=' + $radioName + '][required]').eq(0).click();
+							}
+							$showGroup.find('select[required]').prop('required', false).removeProp('required');
+							$showGroup.find('select').prop('selectedIndex', 0).trigger($.Event('change', {no_update: 1}));
+							$showGroup.find('input[type=text][required]').prop('required', false).removeProp('required');
+							$showGroup.find('input[type=text],textarea').each(function () {
+								if ($(this).val() != "") {
+									$(this).data('default', $(this).val());
+								}
+								$(this).val('');
+							});
+							$showGroup.removeClass('required_upload');
+							//$showGroup.find('input[type=radio][data-option_id=1]').prop('checked',true);
+							//$showGroup.find('input[type=radio][data-option_id=13]').prop('checked',true);
+							if ($showGroup.is('.other_field')) {
+								$showGroup.trigger('hide');
+							} else {
+								$showGroup.closest('.other_field').trigger('hide');
+							}
+							$(':input[isqty]').trigger('price_update');
+						} else if ($showHide.toUpperCase() == "TAB_Q") { // mylar tabs per set question
+							if ($this.val() == "") {
+								$showGroup.find('.populate-tab-options:visible').closest('div').slideUp();
+								$showGroup.find('.tab-drop-container').slideUp();
+								$showGroup.find('input.remove-tab-options').click();
+							} else {
+								$showGroup.find('.populate-tab-options:hidden').closest('div').slideDown();
+								if ($showGroup.find('.tab-drop-container:visible').length > 0) {
+									var tabCt = $showGroup.find('div.tab-drop-container').find('div').length;
+									var cTab = [];
+									var cCt = 0;
+									while (tabCt < $this.val()) {
+										cTab[cCt] = $showGroup.find('div.tab-drop-container').find('div').first().clone(true);
+										cTab[cCt].css({"display": "none"});
+										$('div.tab-drop-container', $showGroup).append(cTab[cCt]);
+										$('span span', cTab[cCt]).css({
+											'background-color': 'transparent',
+											'color': 'black'
+										});
+										$('option', cTab[cCt])[0].innerHTML = 'Select a Mylar Tab Color - Tab #' + (tabCt + 1);
+										cTab[cCt].slideUp(0);
+										$('select', cTab[cCt]).prop('selectedIndex', 0);
+										cTab[cCt].slideDown();
+										tabCt++;
+										cCt++;
+									}
+									while (tabCt > $this.val()) {
+										$showGroup.find('div.tab-drop-container').find('div').eq(tabCt - 1).slideUp(function () {
+											$(this).remove();
+										});
+										tabCt--;
+									}
+								}
+							}
+						} else if ($showHide.toUpperCase() == "TAB") { // mylar tab options
+              var speed = ( e.init ) ? 0 : 1000;
+							var $container = $this.closest('.form_builder_container');
+							if ($this.is('.populate-tab-options')) { // use different color for each set
+								var $key = $showGroup.find(':input[data-element_id=' + $showGroup.data('element_id') + ']');
+								if ($key.length > 1) {
+									$key = $showGroup.find(':input[data-element_id=' + $showGroup.data('element_id') + ']:checked').eq(0);
+								}
+								if ($key.val() == "" || isNaN($key.val()) || $key.val() == 0) {
+									$this.closest('div').hide();
+									if ($this.is(':checked')) {
+										$container.find('input.remove-tab-options').click();
+									}
+								} else {
+									var myNum = $key.val();
+									var orig = (($('.tab-drop-holder div', $container).length == 1) ? $('.tab-drop-holder div:first', $container) : ($('.tab-drop-container div', $container).length > 0) ? $('.tab-drop-container div:first', $container) : null);
+									var curCt = $('.tab-drop-container div', $container).length;
+									$('.tab-drop-container', $container).show();
+									if (orig != null && myNum > 1) {
+										var tabcontainer = $('.tab-drop-container', $container);
+										if (curCt > myNum) { // if we have more options than we should, delete them
+											$('div', tabcontainer).slice(myNum, curCt).slideUp(speed, function () {
+												$(this).remove();
+											});
+										} else if (curCt < myNum) { // else add the options we need
+											for (j = 0; j < myNum; j++) {
+												if (j > curCt - 1) {
+													// var div = $('<div/>').css('display','none').appendTo(tabcontainer);
+													var $clone = orig.clone(true);
+													$clone.css('display', 'none');
+													tabcontainer.append($clone);
+													$('span span', $clone).css({
+														'background': 'transparent',
+														'color': 'black'
+													});
+													$clone.find('select').prop('selectedIndex', 0).find('option').eq(0).text('Select a Mylar Tab Color - Tab #' + (j + 1));
+													$clone.slideUp(0);
+													$clone.slideDown(speed);
+												}
+											}
+										}
+										$('.tab-drop-holder:visible', $container).slideUp(speed, function () {
+											$('div', $(this)).remove();
+										});
+										$(this).animate({
+											marginTop: '0'
+										},
+										{
+											queue: false,
+											duration: speed
+										});
+									}
+								}
+							} else { // use a single color for all tabs
+								if ($container.find('.tab-drop-holder').find('div').length == 0) {
+									var orig = ($('.tab-drop-container div', $container).length > 0) ? $('.tab-drop-container div:first', $container) : null;
+									if (orig != null) {
+										var $clone = orig.clone(true);
+										$clone.find('select').prop('selectedIndex', 0).find('option').eq(0).text('Select a Color For Your Mylar Tabs');
+										$('span span', $clone).css({'background': 'transparent', 'color': 'black'});
+										$container.find('.tab-drop-holder').append($clone);
+									}
+								}
+								var $key = $showGroup.find(':input[data-element_id=' + $showGroup.data('element_id') + ']');
+								if ($key.length > 1) {
+									$key = $showGroup.find(':input[data-element_id=' + $showGroup.data('element_id') + ']:checked').eq(0);
+								}
+								if ($key.val() == "" || isNaN($key.val()) || $key.val() == 1) {
+									$container.find('div.last-ungrouped-answer').hide();
+								} else {
+									$container.find('div.last-ungrouped-answer').show();
+								}
+								$container.find('.tab-drop-container').slideUp(speed, function () {
+									$(this).children().remove();
+								});
+								$container.find('.tab-drop-holder').slideDown(speed);
+							}
+						}
+					}
+				}
+				window.setTimeout(function () {
+					if (typeof InstantPricingList === "object" && InstantPricingList.length > 0) {
+						InstantPricingList[0].recalculateForm();
+					}
+				}, 500);
+				if ( typeof SELECT_LIST === "object" && SELECT_LIST.length > 0 ) {
+					gList = {};
+					oList = {};
+					var dep = null;
+					$( ':input[data-dependencies]:checked, option[data-dependencies]:selected' ).each(function () {
+						if( $(this).data( 'dependencies' ) != "" ) {
+							dep = $(this).data( 'dependencies' ).split( ',' );
+							for ( var i = 0; i < dep.length; i++ ) {
+								if ( dep[i].indexOf( 'HIDE:GROUP_' ) > -1 ) {
+									var gid = dep[i].replace( /HIDE:GROUP_/, '' ).trim();
+									if ( ! gList.hasOwnProperty( gid ) ) {
+										gList[gid] = -1;
+									}
+								} else if ( dep[i].indexOf( 'HIDE:OPTION_' ) > -1 ) {
+									var oid = dep[i].replace( /HIDE:OPTION_/, '' ).trim();
+									if ( ! oList.hasOwnProperty( oid ) ) {
+										oList[oid] = -1;
+									}
+								}
+							}
+						}
+					});
+					for ( var i = 0; i < SELECT_LIST.length; i++ ) {
+						var $select = $( 'select[data-element_id=' + SELECT_LIST[i].Element_ID + ']:not(.hidden_input)' );
+						if ( $select.length > 0 ) {
+							var $val = $select.val();
+							var oid = $select.find( 'option:selected' ).data( 'option_id' );
+							var $selected = false;
+							$select.empty();
+							var $select2 = [];
+							if( $select.is( '[isqty]' ) ) {
+								$select2 = $( '#dockable' ).find( 'select#priceqty' );
+								if( $select2.length > 0 ) $select2.empty();
+							}
+							for ( var j = 0; j < SELECT_LIST[i].Groups.length; j++ ) {
+								var showGroup = true;
+								if ( SELECT_LIST[i].Groups[j].Group_ID != "" ) {
+									if ( gList.hasOwnProperty( SELECT_LIST[i].Groups[j].Group_ID ) ) {
+										showGroup = false;
+									} else {
+										var $parent = $( '<optgroup id="GROUP_' + SELECT_LIST[i].Groups[j].Group_ID + '"' + ( ( SELECT_LIST[i].Groups[j].Visible == 1 ) ? ' label="' + SELECT_LIST[i].Groups[j].Name + '"' : '' ) + '></optgroup>' );
+										$select.append( $parent );
+									}
+								} else {
+									var $parent = $select;
+								}
+								if ( showGroup ) {
+									for ( var k = 0; k < SELECT_LIST[i].Groups[j].Options.length; k++ ) {
+										if ( ! oList.hasOwnProperty( SELECT_LIST[i].Groups[j].Options[k].Option_ID ) ) {
+											var opt = SELECT_LIST[i].Groups[j].Options[k];
+											var $option = $('<option id="OPTION_' + opt.Option_ID + '" value="' + opt.Value + '">' + opt.Value + '</option>' );
+											var $option2 = $('<option value="' + opt.Value + '">' + opt.Value + '</option>' );
+											for( var key in opt ) {
+												if( key != "Value" ) {
+													$option.attr( 'data-' + key.toLowerCase(), opt[key] );
+													if( key.toLowerCase() === "dependencies" ) {
+														$option2.attr( 'data-' + key.toLowerCase(), opt[key] );
+														if( opt[key] !== "" && $select2.length > 0 ) $select2.attr( 'data-' + key.toLowerCase(), '' );
+													}
+												}
+											}
+											if( opt.Value == $val || ( oid && opt.Option_ID == oid ) || ( opt.Default == 1 && ! $selected ) ) {
+												$selected = true;
+												$option.prop( 'selected', 'selected' );
+												$option2.prop( 'selected', 'selected' );
+											}
+											$parent.append( $option );
+											if( $select2.length > 0 ) $select2.append( $option2 );
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+        dropdownsLoaded = true;
+				if (!e.isTrigger && $(this).is('[data-element_id]') && $(this).data('type') != 20) {
+					$(':input[isqty]').trigger('weight_update');
+          $(this).trigger( 'ody_update' );
+				}
+				if (typeof PageFlexList == "object" && PageFlexList.length > 0) {
+					PageFlexList[0].getPreview();
+				}
+			}
+		}
+	})
+	.on('change', 'div.other_field input[type="checkbox"], .other_field input[type="radio"]', function(e) {
+		if( $(this).is( ':checked' ) ) {
+			$(this).parent().siblings('div').slideDown();
+			$(this).closest( '.other_field' ).trigger( 'show' );
+		} else {
+			$(this).parent().siblings('div').slideUp();
+			$(this).closest( '.other_field' ).trigger( 'hide' );
+		}
+	})
+	.on('show', '#product_order[product_key] div.other_field', function () {
+		$(this).find('input[type=text], select').eq(0).focus();
+		$(this).find(':input').each(function () {
+			if ($(this).is('[isQty]')) {
+				$(this).prop('required', 'required');
+			} else if ($(this).closest('.form_builder_container').find('input[type=radio]').eq(0).prop('required') == "required") {
+				$(this).prop('required', 'required');
+			} else if ($(this).closest('.form_builder_container').find('select').eq(0).prop('required') == "required") {
+				$(this).prop('required', 'required');
+			}
+		});
+	})
+	.on('hide', '#product_order[product_key] div.other_field', function () {
+		$(this).find('input[type=text]').val('');
+		$(this).find('>div').css({"display": "none"});
+		$(this).find(':input').each(function () {
+			$(this).removeAttr('required');
+			$(this).removeClass('msg-required');
+		});
+		if (typeof InstantPricingList === "object" && InstantPricingList.length > 0) {
+			InstantPricingList[0].recalculateForm();
+		}
+	})
+	.on('change', '#product_order[product_key] div.combobox input[type=radio], div.combobox select', function (e) {
+		var container = $(this).closest('div.combobox');
+		var required = $(this).is(':required');
+		var option_id = ($(this).is('select')) ? $(this).find('option:selected').data('option_id') : $(this).data('option_id');
+		container.find('div.SUBOPTION').each(function () {
+			if ($(this).data('option_id') == option_id) {
+				$(this).slideDown();
+				if (!e.isTrigger) {
+					$(this).find('input[type=text]').focus();
+				}
+				if( required ) $(this).find('input[type=text]').prop('required','required');
+			} else {
+				$(this).slideUp();
+				$(this).find('input[type=text]').val('').removeProp( 'required' );
+			}
+		});
+	})
+	.on('click', '#product_order[product_key] div.combobox input[type=checkbox]', function () {
+		var container = $(this).closest('div');
+		if ($(this).is(':checked')) {
+			container.find('div.SUBOPTION').slideDown();
+			container.find('div.SUBOPTION').find('input[type=text]').focus();
+		} else {
+			container.find('div.SUBOPTION').slideUp();
+			container.find('div.SUBOPTION').find('input[type=text]').val('');
+		}
+	})
+	.off('change', '#product_order[product_key] input.dimension_field, select.dimension_select').on('change', '#product_order[product_key] input.dimension_field, select.dimension_select', function (e) {
+		var $this = ($(this).is('select')) ? $(this).find('option:selected') : $(this);
+		if ($this.is('.dimension_field') && /[0-9\.]{1,} (in|ft|yd|m|mm|cm)(\.)? x [0-9\.]{1,} (in|ft|yd|m|mm|cm)(\.)?/.test($this.val())) {
+			var val = 1;
+			var val_split = $this.val().split(' x ');
+			for (i = 0; i < val_split.length; i++) {
+				var $thisVal = parseFloat(val_split[i]);
+				if ($thisVal == "" || isNaN($thisVal) || $thisVal < 0) {
+					val = "";
+					break;
+				} else {
+					val *= $thisVal;
+				}
+			}
+			$this.closest('li').find('input.dimension_output').val(val);
+		} else {
+			var val = "";
+			$this.closest('li').find(':input.dimension_input').each(function () {
+				var $thisVal = parseFloat($(this).val());
+				if ($thisVal == "" || isNaN($thisVal) || $thisVal < 0) {
+					val = "";
+					return false;
+				} else {
+					if (val == "") {
+						val = 1;
+					}
+					val *= $thisVal;
+				}
+			});
+			$this.closest('li').find('input.dimension_output').val(val);
+		}
+		if (typeof InstantPricingList === "object" && InstantPricingList.length > 0) {
+			InstantPricingList[0].processQuote()
+		}
+		$(':input[isqty]').trigger('weight_update');
+	})
+	.off('change', '#product_order[product_key] :input.dimension_input').on('change', '#product_order[product_key] :input.dimension_input', function (e) {
+		if ($(this).is('.hidden_input')) {
+			var val = "";
+		} else {
+			var val = 1;
+			$(this).closest('.dimension_container').find(':input.dimension_input').each(function () {
+				var $thisVal = parseFloat($(this).val());
+				if ($thisVal == "" || isNaN($thisVal) || $thisVal < 0) {
+					val = "";
+					return false;
+				} else {
+					val *= $thisVal;
+				}
+			});
+		}
+		$(this).closest('li').find('input.dimension_output').val(val);
+		if (typeof InstantPricingList === "object" && InstantPricingList.length > 0) {
+			InstantPricingList[0].processQuote()
+		}
+		$(':input[isqty]').trigger('weight_update');
+	})
+	.off('change', '#product_order[product_key] :input.dimension_custom').on('change', '#product_order[product_key] :input.dimension_custom', function () {
+		$(this).closest('li').find('input.dimension_output').val(0);
+		if (typeof InstantPricingList === "object" && InstantPricingList.length > 0) {
+			InstantPricingList[0].processQuote()
+		}
+		$(':input[isqty]').trigger('weight_update');
+	})
+	.on('change', 'select#ADDR_AutoFill', function (e) {
+    if (typeof ADDR_AutoFill === "object" && ADDR_AutoFill.length > 0) {
+			var addInfo = null;
+			for (i = 0; i < ADDR_AutoFill.length; i++) {
+				if (ADDR_AutoFill[i].Address_ID == $(this).val()) {
+					addInfo = ADDR_AutoFill[i];
+					break;
+				}
+			}
+			if (addInfo != null) {
+				$(':input[data-autofill]').each(function () {
+					if ($(this).data('autofill') != "") {
+						var $val1 = $(this).data('autofill').split('[');
+						var $val = "";
+						for (i = 0; i < $val1.length; i++) {
+							if ($val1[i].indexOf(']') > -1) {
+								var $val2 = $val1[i].split(']');
+								var $val3 = $val2[0].replace(/ADDR_/, '');
+								if (addInfo.hasOwnProperty($val3)) {
+									$val3 = addInfo[$val3];
+								} else {
+									$val3 = "";
+								}
+								$val = $val + $val3;
+								if ($val2.length > 1) {
+									$val = $val + $val2[1];
+								}
+							} else {
+								$val = $val + $val1[i];
+							}
+						}
+						$val = $val.replace(/<br+? +?\/+>/gi, '');
+						while (/\n\n/.test($val)) {
+							$val = $val.replace(/\n\n/g, '\n');
+						}
+						while (/\r\r/.test($val)) {
+							$val = $val.replace(/\r\r/g, '\r');
+						}
+						while (/\r\n\r\n/.test($val)) {
+							$val = $val.replace(/\r\n\r\n/g, '\r\n');
+						}
+						if (!/[a-zA-Z0-9]/.test($val)) {
+							$val = '';
+						}
+						$(this).val($val);
+					}
+				});
+			}
+			if (typeof PageFlexList == "object" && PageFlexList.length > 0) {
+				PageFlexList[0].getPreview();
+			}
+    }
+	})
+	.on('change', ':input[data-autofill^="[ADDR_"]', function () {
+    $('select#ADDR_AutoFill').val('');
+	})
+;
+
+var gList = {};
+var oList = {};
+
+/************** END Consolidated Order Form Specific Functionality **************/
+
+var moveable = {
+  start: 0
+};
+
+moveable.init = function() {
+	if ($('#moveable').not('.my_account').length > 0) {
+		$(window).scroll(function () {
+      moveable.scroll();
+    });
+		$(window).bind('touchmove', function () {
+			$('#moveable').css({'display': 'none'});
+		});
+	}
+}
+
+moveable.scroll = function() {
+  if ($('#moveable').not('.my_account').length > 0) {
+    var scrollTop = 0;
+    var hasMI4PFrame = false;
+    if( typeof mi4pFrame === "object" && mi4pFrame && mi4pFrame.scrollReceived ) {
+      scrollTop = mi4pFrame.top;
+      hasMI4PFrame = true;
+    } else {
+      scrollTop = $(window).scrollTop();
+    }
+    if (moveable.start == 0 && $('#moveable').is(':visible')) {
+      moveable.start = $('#moveable').offset().top;
+    }
+    if (scrollTop - moveable.start > -40 && scrollTop - moveable.start < $('section.right.bottom').height() - $('#moveable').outerHeight() - parseInt($('#moveable').css('margin-top').replace('px', ''))) {
+      $('#moveable').css({
+        'display': 'block',
+        'position': 'fixed',
+        'top': '0px',
+        'width': $('#moveable').css('width')
+      });
+      $('section.right.bottom').not('#templateHolder').css('margin-left', '303px');
+    } else if (scrollTop - moveable.start >= $('section.right.bottom').height() - $('#moveable').outerHeight() - parseInt($('#moveable').css('margin-top').replace('px', ''))) {
+      $('#moveable').css({
+        'display': 'block',
+        'position': 'relative',
+        'top': $('section.right.bottom').height() - $('#moveable').outerHeight()
+      });
+      $('section.right.bottom').css('margin-left', '0px');
+    } else {
+      $('#moveable').css({'display': 'block', 'position': 'static'});
+      $('section.right.bottom').css('margin-left', '0px');
+    }
+  }
+}
+
+/* ajax-controlled form action panels ( printing/order_options.mdl ) */
+
+var form_in_progress = false;
+
+$( document )
+	.on( 'change', 'aside.order_options select[name="FORM_Product_KEY"]', function(e) {
+		var key = parseInt( $(this).val() );
+		if( $( 'form.pricing_form' ).length == 0 ) form_in_progress = false;
+		var cont = ( form_in_progress ) ? confirm( 'Are you sure you want to leave this form? Your changes will be lost.' ) : true;
+
+		if( cont ) {
+			var panel = $( this ).closest( '[data-panel]' );
+			var panel_name = panel.data( 'panel' );
+			var category = $( this ).closest( '[data-category]' ).data( 'category' );
+			var container = $( 'div#productInfo' );
+
+			panel.siblings().removeClass( 'active' ).find( 'select' ).prop( 'selectedIndex', 0 );
+			panel.addClass( 'active' );
+			container.removeClass( 'fullwidth' ).addClass( 'loading' ).empty();
+			$( 'div.delayed-show > section.left.bottom' ).show();
+
+			if( ! isNaN( key ) && key > 0 ) {
+				panel.find( 'a.show_all_forms' ).show();
+			} else {
+				panel.find( 'a.show_all_forms' ).hide();
+			}
+			aj_form.form_address_push( panel_name + '/' + category + '/' + key );
+		}
+	})
+	.on( 'click', 'aside.order_options a.panel_show', function(e) {
+		e.preventDefault();
+
+		var panel = $( this ).closest( '[data-panel]' );
+		var panel_name = panel.data( 'panel' );
+		var category = $(this).closest( '[data-category]' ).data( 'category' );
+		var container = $( 'div#productInfo' );
+		var full_width = panel_name == "design-online";
+
+		if( ! panel.is( '.active' ) ) {
+			var cont = ( form_in_progress ) ? confirm( 'Are you sure you want to leave this form? Your changes will be lost.' ) : true;
+			if( cont ) {
+				panel.siblings().removeClass( 'active' );
+				panel.addClass( 'active' );
+				container.empty().addClass( 'loading' );
+				if( full_width ) {
+					$( 'div.delayed-show > section.left.bottom' ).fadeOut();
+					container.addClass( 'fullwidth' );
+					container.closest( '.delayed-show' ).addClass( 'noscroll' );
+					$( window ).resize();
+				} else {
+					container.removeClass( 'fullwidth' );
+					container.closest( '.delayed-show' ).removeClass( 'noscroll' ).removeAttr( 'style' );
+					container.parent().removeAttr( 'style' );
+					$( 'div.delayed-show > section.left.bottom' ).show();
+				}
+				if( panel_name == "custom" ) {
+					panel_name = "printing";
+					category = "custom-printing/" + category;
+				}
+				aj_form.form_address_push( panel_name + '/' + category );
+			}
+		}
+		var $al = $( 'div.active_link' );
+		if( $al.length > 0 ) {
+			var off = panel.width() / 2;
+			if( panel.closest( 'body.TheCorporation' ).length > 0 ) {
+				off = 125;
+			}
+			$al.css({
+				'left': panel.offset().left - panel.parent().offset().left + off
+			}).show();
+		}
+	})
+	.on( 'click', 'aside.order_options a.show_all_forms', function(e) {
+		e.preventDefault();
+		var panel = $(this).closest( '[data-panel]' );
+		var panel_name = panel.data( 'panel' );
+		var category = $(this).closest( '[data-category]' ).data( 'category' );
+		var container = $( 'div#productInfo' );
+		var cont = ( form_in_progress ) ? confirm( 'Are you sure you want to leave this form? Your changes will be lost.' ) : true;
+
+		if( cont ) {
+			panel.siblings().removeClass( 'active' ).find( 'select' ).prop( 'selectedIndex', 0 ).end().find( 'a.show_all_forms' ).hide();
+			panel.addClass( 'active' ).find( 'select' ).prop( 'selectedIndex', 0 ).end().find( 'a.show_all_forms' ).hide();
+			container.empty().addClass( 'loading' );
+			aj_form.form_address_push( panel_name + '/' + category );
+		}
+	})
+	// Commented Out for JIRA PW-123
+	// .on( 'click', '#productInfo.ajaxload .public_products div.product_info a, #productInfo.ajaxload a.backtocategory', function(e) {
+	// 	e.preventDefault();
+	// 	var href = $(this).attr( 'href' );
+	// 	if( href && href.indexOf( '#' ) != 0 ) {
+	// 		var path = $(this).attr( 'href' );
+	// 		var container = $( 'div#productInfo' );
+	// 		container.empty().addClass( 'loading' );
+	// 		aj_form.form_address_push( path );
+	// 	}
+	// })
+
+;
+
+var aj_form = {};
+
+aj_form.form_address_push = function( path ) {
+	var pbase = path.split( '/' );
+	for( var i = pbase.length - 1; i >= 0; i-- ) {
+		if( pbase[i].trim() == "" ) pbase.splice( i, 1 );
+	}
+	path = pbase.join( '/' );
+	var destination = PREFS.WEBBASE + path;
+	var container = $( 'div#productInfo' );
+	var container2 = $( '#mcsTemplateFrame' );
+	var call_to = "ajax_jquery.iml";
+	var call_type = "html";
+	container.show(); // in case it's hidden
+	container2.hide(); // in case it's visible
+	container2.find( 'iframe' ).attr( 'src', 'blank.html' );
+	if( history.pushState ) { // modern browsers
+		var p = path.split( '/' );
+		var data = {
+			mdl: PREFS.OPC_Version_Path + 'printing/viewForms.aj',
+			LOADIN_FORM: 1,
+			SUPPRESS_SCRIPTS: 1
+		};
+		for( var i = 0; i < 3; i++ ) {
+			data['APATH_'+(i+1)] = ( p.length > i ) ? p[i] : '';
+		}
+		var dedit = p[0] == "design-online";
+		if( dedit ) {
+			data.mdl = PREFS.OPC_Version_Path + 'designedit/frame_src.aj';
+			data.AJAX_CALL = 1;
+			call_type = "json";
+			call_to = "json.iml";
+		}
+		var isDocLib = p[0] == "docLib";
+		if( isDocLib ) {
+			data.mdl = PREFS.OPC_Version_Path + 'docLib/viewForms.aj';
+		}
+		$.post( call_to, data, function( rdata ) {
+			container.removeClass( 'loading' );
+			if( dedit ) {
+				if( rdata && rdata.frame_src && rdata.frame_src != "" && rdata.frame_src != "blank.html" ) {
+					container2.find( 'iframe' ).attr( 'src', rdata.frame_src );
+          if( typeof mcs === "object" && mcs ) mcs.frameSource = rdata.frame_src;
+					container.hide();
+					container2.show();
+				} else {
+					container.html( '<p class="designedit-alert">No templates could be found for this category.</p>' );
+				}
+			} else {
+				container.html( rdata );
+				$( 'select[name="FORM_Product_KEY"]' ).each( function() {
+					$(this).val('');
+				});
+				$( 'a.show_all_forms' ).each( function() {
+					$(this).show();
+				});
+				if( data.APATH_3 ) {
+					orderFormReady();
+					if( data.APATH_1 == "printing" && data.APATH_2 != "custom-printing" ) {
+						$( 'select[name="FORM_Product_KEY"][data-type="public"]' ).val( data.APATH_3 );
+					} else if( data.APATH_1.toLowerCase() == "doclib" ) {
+						$( 'select[name="FORM_Product_KEY"][data-type="private"]' ).val( data.APATH_3 );
+					}
+				} else {
+					if( data.APATH_1 == "printing" ) {
+						$( 'a.show_all_forms[data-type="public"]' ).hide();
+					} else if( data.APATH_1.toLowerCase() == "doclib" ) {
+						$( 'a.show_all_forms[data-type="private"]' ).hide();
+					}
+				}
+			}
+		}, call_type );
+		history.pushState( null, '', destination );
+	} else { // ie9 and under
+		window.location.href = destination;
+	}
+}
+
+/* end ajax-controlled form action panels ( printing/order_options.mdl ) */
+
+var formStarted = false;
+
+$(document)
+
+	.on('click', '.artwork_options > a', function (e) {
+		e.preventDefault();
+		$(this).parent().addClass('disabled');
+		$(this).siblings().removeClass('selected');
+		$(this).addClass('selected');
+		$('input[name=Artwork]').val($(this).text());
+		if ($('.delayed-show:visible').length == 0) {
+			formStarted = false;
+		}
+		if ($(this).is('[artwork=designedit]')) {
+			if ($('.delayed-show:visible').length > 0 && formStarted) {
+				$('a#request_quote').attr('id', 'start_template').trigger('click');
+			} else {
+				window.location.href = window.location.href.replace(/\/printing(_)?\//, '/design-online/');
+			}
+		} else {
+			$('a#start_template').attr('id', 'request_quote');
+			$('.showSystemForm').trigger($.Event("click", {hideUpload: !$(this).is('[artwork=upload]')}));
+			$('input[name^=TurnaroundTimes].datepicker').datepicker('destroy').datepicker({'minDate': new Date()});
+		}
+	})
+
+	.on('click', 'a.showPubForms', function (e) {
+		e.preventDefault();
+		$('.delayed-show').show();
+		if ($(this).hasClass('animateScroll')) {
+			$('html, body').animate({'scrollTop': $('.delayed-show').offset().top}, 1000, function () {
+			});
+		}
+	})
+	.on('click', 'a.showSystemForm', function (e) {
+		e.preventDefault();
+		$('.delayed-show,.backtocategory').show();
+		if ($(this).hasClass('animateScroll')) {
+			$('html, body').animate({'scrollTop': $('.delayed-show').offset().top}, 1000);
+		}
+		$('.systemFormIntro,#product_category_table').fadeOut(400, function () {
+			$('.pricing_form,#multiproductcontainer').fadeIn(function () {
+				$(this).find('input[name^=ColorChoices]:checked').trigger('click');
+				$(this).find('input[data-dependencies]:checked').each(function () {
+					if ($(this).data('dependencies') != "") {
+						$(this).trigger('change');
+					}
+				});
+			});
+		});
+		$('input[name^=TurnaroundTimes].datepicker').datepicker('destroy').datepicker({'minDate': new Date()});
+		//$('#product_category_table').addClass('faded').find('div.product').fadeTo(400,0.5);
+
+		if ($('#instantPrice.systemform').length > 0) {
+			init_pricing();
+			$('#Qty').trigger('price_update');
+			//moveable.init();
+		}
+		if (typeof init_harmony_pricing == "function") {
+			init_harmony_pricing();
+		}
+		if (PREFS.PostNet_Entry_Level) {
+			if (e.hideUpload) {
+					$('li#GROUP_Files_ALL').hide();
+			} else {
+					$('li#GROUP_Files_ALL:hidden').show();
+			}
+		}
+	})
+	.on('click', 'tbody.customFormIntro a:not(.read-toggle,.img,#product_slide_right,#product_slide_left),#productInfo > a.backtocategory', function (e) {
+		if (PREFS.DEV_MODE && 0) {
+			e.preventDefault();
+			$.address.path($(this).attr('href'));//.hash('');
+			if ($('#product_category_table:hidden').length > 0) {
+				$('.backtocategory').fadeOut();
+				$('.pricing_form,#multiproductcontainer').fadeOut(400, function () {
+					$('.systemFormIntro,#product_category_table,.desc').fadeIn();
+				});
+			} else {
+				var href = $(this).attr('href').split('/');
+				var PATH_2 = href[1];
+				var PATH_3 = (href[2]) ? href[2] : '';
+				var LOADIN_FORM = ($(this).is('.backtocategory')) ? 0 : 1;
+				$('div.product_image.product_page > div').fadeOut();
+				$('div#productInfo').eq(0).fadeOut(function () {
+					var $this = $(this);
+					var $that = $('div.product_image.product_page > div');
+					var $theother = $('section.right.top > article');
+					$this.parent().addClass('loading');
+					$that.parent().addClass('loading');
+					$theother.parent().addClass('loading');
+					$theother.children().each(function () {
+						$(this).fadeOut();
+					});
+					$.get('ajax_jquery.iml?mdl=' + PREFS.OPC_Version_Path + 'printing/viewForms.aj&APATH_2=' + PATH_2 + '&APATH_3=' + PATH_3 + '&LOADIN_FORM=' + LOADIN_FORM + '&SUPPRESS_SCRIPTS=1', function (data) {
+						$this.html(data);
+						if (typeof Cufon === "function") {
+							Cufon.refresh();
+						}
+						$this.fadeIn();
+						$this.parent().removeClass('loading');
+						$.get('ajax_jquery.iml?mdl=' + PREFS.OPC_Version_Path + 'printing/viewProductInfo.aj&PATH_2=' + PATH_2 + '&PATH_3=' + PATH_3 + '&SUPPRESS_SCRIPTS=1', function (rdata) {
+							var $div = $('<div></div>');
+							$div.html(rdata);
+							$that.closest('.top.left').html($div.find('.top.left').html());
+							$theother.parent().html($div.find('.top.right').html()).removeClass('loading');
+							if (typeof Cufon === "function") {
+									Cufon.refresh();
+							}
+							initTemplateSlides();
+						}, 'html');
+						if (typeof init_harmony_pricing == "function") {
+							init_harmony_pricing();
+						}
+						dockable.init();
+					}, 'html');
+				});
+			}
+		}
+	})
+	.on('change', 'input[type=hidden].msg-required', function () {
+		$(this).removeClass('.msg-required');
+		$(this).blur();
+		$('#msg-required').fadeOut();
+	})
+	.on('mouseover', '#product_category_table div.product', function () {
+		if ($(this).closest('table').is('.faded')) {
+			$(this).fadeTo(0, 1);
+		}
+	})
+	.on('mouseout', '#product_category_table div.product', function () {
+		if ($(this).closest('table').is('.faded')) {
+			$(this).fadeTo(0, 0.5);
+		}
+	})
+	.on('submit', "form[data-role=contact-rep]", function (e) {
+    $(this).slideUp();
+	})
+	.on('success', "form[data-role=contact-rep]", function (e) {
+    $(this).html('<h4>Request received</h4><p>Thank you for contacting us. We will be in touch with you soon.</p>');
+    $(this).slideDown();
+	})
+;
+
+function update_total(total) {
+	var $totalPrice = $('#totalPrice');
+	var oldTotalPrice = $totalPrice.text();
+	var $totalPriceHelp = $totalPrice.siblings('.cart-help');
+	var QTY = parseInt($('[isqty]').val());
+	if (isNaN(QTY) && $('[isqty]').length > 1) {
+		QTY = parseInt($('[isqty]').eq(1).val());
+	}
+	total = parseFloat(total);
+	if ( ! isNaN( total ) && total.toFixed(2) > 0 ) {
+		$totalPriceHelp.hide();
+		if( PREFS.NA_Price_Estimate_Only ) $('.pricingNAhidden').css('display', 'inline').removeClass('pricingNAhidden');
+		$('.quote_action, .actions_gap').css('display', 'none').addClass('pricingNAhidden');
+		var $temp = $( 'input[type="hidden"][name="TEMPLATE_Price"]' );
+		var $imgs = $( 'input[type="hidden"][name="TEMPLATE_Images"]' );
+		var t_price = 0;
+		var i_price = 0;
+		if( $temp.length > 0 ) t_price = parseFloat( $temp.val() );
+		if( $imgs.length > 0 ) i_price = parseFloat( $imgs.val() );
+		if( isNaN( t_price ) || t_price < 0 ) t_price = 0;
+		if( isNaN( i_price ) || i_price < 0 ) i_price = 0;
+		total = total + t_price + i_price;
+		$totalPrice.text(total.toFixed(2));
+		$('input[name=Price]').val($totalPrice.text());
+		$('input[name=InstantPricing_Total]').val($totalPrice.text());
+		var priceEach = total / QTY;
+		$('#priceEach').text(priceEach.toFixed(2));
+	} else {
+		$totalPrice.text('N/A');
+		$('input[name=Price]').val('');
+		$('input[name=InstantPricing_Total]').val('');
+		$totalPriceHelp.css('display', 'inline-block');
+		$('#priceEach').text('');
+		$('.pricingNAhidden').css('display', 'inline').removeClass('pricingNAhidden');
+		if( PREFS.NA_Price_Estimate_Only && $( '.quote_action' ).length ) $('.order_action,.actions_gap' ).css('display', 'none').addClass('pricingNAhidden');
+	}
+	if ($totalPrice.text() != oldTotalPrice) {
+		$totalPrice.addClass('changed');
+	}
+	var removeChangedClass = window.setTimeout("$('output.changed').removeClass('changed');", 1000);
+}
+
+function initTemplateSlides() {
+	if ($('#templateEditor').length == 1 && $('input[name=JOB_Instance_ID]').val() == "") {
+		loadTemplate($('input[name=JOB_Template_ID]').val(), $('input[name=JOB_Instance_ID]').val(), $('input[name=EDIT_Job_ID]').val());
+	}
+	$('.product_image.product_page').each(function () {
+		var $instance = $(this);
+		$instance.slideContainer = $('#template_slides', $instance);
+		if ($instance.slideContainer.length > 0) {
+			$instance.slideContainer.css('left', '0');
+			$instance.autoRotate = true;
+			$instance.autoRotateDir = 'right';
+			$instance.autoRotateInterval = setInterval(function () {
+				if ($instance.autoRotate) {
+					$('#template_slide_' + $instance.autoRotateDir, $instance).click();
+				}
+			}, 5000);
+			$instance.on('mouseover', function (e) {
+				$instance.autoRotate = false;
+			});
+			$instance.on('mouseout', function (e) {
+				$instance.autoRotate = true;
+			});
+			$instance.isRotating = false;
+			$instance.on('click', "#template_slide_left", function (e) {
+				e.preventDefault();
+				if (!$instance.isRotating) {
+					$instance.slideContainerLeft = parseInt($instance.slideContainer.css('left'));
+					if ($instance.slideContainerLeft < 0) {
+						$instance.isRotating = true;
+						$instance.slideContainer.animate({left: $instance.slideContainerLeft + 250 + 'px'}, 1000, 'swing', function () {
+							$instance.isRotating = false;
+							$('#template_slide_right', $instance).css('color', '#244474');
+							/* $('#template_slide_right').text('>'); */
+							if (parseInt($instance.slideContainer.css('left')) >= 0) {
+								$('#template_slide_left', $instance).css('color', 'white');
+								/* $('#template_slide_left').html('&nbsp;&nbsp;&nbsp;'); */
+								$instance.autoRotateDir = 'right';
+							}
+						});
+					}
+				}
+			});
+			$instance.on('click', "#template_slide_right", function (e) {
+				e.preventDefault();
+				if (!$instance.isRotating) {
+					$instance.slideContainerLeft = parseInt($instance.slideContainer.css('left'));
+					if ($instance.slideContainerLeft > -250 * ($instance.slideContainer.children().length - 1)) {
+						$instance.isRotating = true;
+						$instance.slideContainer.animate({left: $instance.slideContainerLeft - 250 + 'px'}, 1000, 'swing', function () {
+							$instance.isRotating = false;
+							$('#template_slide_left', $instance).css('color', '#244474');
+							/* $('#template_slide_left').text('<'); */
+							if (parseInt($instance.slideContainer.css('left')) <= -250 * ($instance.slideContainer.children().length - 1)) {
+								$('#template_slide_right', $instance).css('color', 'white');
+								/* $('#template_slide_right').html('&nbsp;&nbsp;&nbsp;'); */
+								$instance.autoRotateDir = 'left';
+							}
+						});
+					}
+				}
+			});
+		}
+	});
+	// ie7 hack -- commence with the weeping and gnashing of teeth //
+	$('.ie7 div.product_image.user a.img img').each(function () {
+		var mTop = ($(this).parent().height() / 2) - ($(this).height() / 2);
+		$(this).css({"margin-top": mTop});
+	});
+}
+var dockable = {
+  dock: $('#dockable'),
+  placeholder: $('#undocked'),
+  window: $(window),
+  toowide: false,
+  bottomReached: false
+};
+dockable.scroll = function() {
+  if (dockable.dock.length > 0) {
+    var scrollTop = 0;
+    var winHeight = 0;
+    var offset = 0;
+    var isDocked = dockable.dock.is( '.docked' );
+    var hasMI4PFrame = false;
+    if( typeof mi4pFrame === "object" && mi4pFrame && mi4pFrame.scrollReceived ) {
+      scrollTop = mi4pFrame.top;
+      winHeight = mi4pFrame.height;
+      offset = mi4pFrame.offset;
+      hasMI4PFrame = true;
+      if( mi4pFrame.animated.dock ) window.clearTimeout( mi4pFrame.animated.dock );
+      if( mi4pFrame.scrolling.dock ) window.clearTimeout( mi4pFrame.scrolling.dock );
+      if( ! winHeight ) return;
+    } else {
+      scrollTop = $(window).scrollTop();
+      winHeight = $(window).height();
+      offset = 0;
+    }
+    if (scrollTop + winHeight - offset > dockable.placeholder.offset().top + dockable.dock.height() || $('#orderview').length > 0 || $('#send_file_popup').length > 0) {
+      dockable.dock.slideDown();
+      dockable.dock.removeClass('docked').removeAttr( 'style' );
+      dockable.placeholder.css('height', 'auto');
+      dockable.dock.css('width', 'auto');
+      dockable.bottomReached = true;
+      if (dockable.toowide) {
+          dockable.dock.css('width', dockable.placeholder.css('width'));
+      }
+      dockable.dock.find('.actions:hidden').slideDown();
+    } else if( dockable.bottomReached || isDocked ) {
+      dockable.dock.slideDown();
+      dockable.dock.addClass('docked');
+      dockable.placeholder.css('height', dockable.dock.css('height'));
+      if( hasMI4PFrame && winHeight < $(window).height() ) {
+        dockable.dock.css({
+          'width': dockable.placeholder.css('width'),
+          'bottom': 'auto',
+          'top': $(window).height() + offset + dockable.dock.height() + 500
+        });
+        mi4pFrame.animate( dockable.dock[0], winHeight - offset - dockable.dock.height(), 'dock', 300 );
+      } else {
+        dockable.dock.css('width', dockable.placeholder.css('width'));
+      }
+    } else if ($('#orderview').length == 0) {
+      dockable.dock.slideDown();
+      dockable.dock.addClass('docked');
+      dockable.placeholder.css('height', dockable.dock.css('height'));
+      dockable.dock.css('width', dockable.placeholder.css('width'));
+    }
+  }
+}
+dockable.toggleExpendable = function() {
+  if( dockable.dock.length > 0 ) {
+    if( typeof mi4pFrame === "object" && mi4pFrame && dockable.dock.is( '.docked' ) ) {
+      var initialHeight = dockable.dock.height();
+      dockable.dock.find( '.expendable' ).toggle();
+      var finishedHeight = dockable.dock.height();
+      dockable.dock.find( '.expendable' ).toggle();
+      var newHeight = initialHeight - finishedHeight;
+      var initialTop = parseFloat( dockable.dock.css( 'top' ) );
+      if( ! isNaN( initialTop ) && newHeight !== 0 ) {
+        dockable.dock.animate( {"top": initialTop + newHeight} );
+      }
+    }
+    dockable.dock.find('.expendable').slideToggle();
+  }
+}
+dockable.init = function() {
+	if (dockable.dock.length > 0) {
+		var $ishidden = dockable.dock.css('display') == "none";
+		dockable.dock.show();
+		var FORCE_SHOW = dockable.dock.offset().top <= $(window).height();
+		var $el = dockable.dock;
+		if ($el.length > 0) {
+			while (!$el.parent().is('html')) {
+				$el = $el.parent();
+				if (($el.css('overflow') == "scroll" || ($el.css('overflow') == "auto" && !$el.is('#content')) && $el.prop('scrollHeight') > $el.height) ) {
+					dockable.window = $el;
+					break;
+				}
+			}
+		}
+		if (dockable.dock.length > 0 && $(window).width() < dockable.dock.offset().left + dockable.dock.width()) {
+			dockable.toowide = true;
+			dockable.dock.css({'margin-left': -(dockable.dock.width() + dockable.dock.offset().left - $(window).width())});
+		}
+		if ($ishidden && !FORCE_SHOW) {
+			dockable.dock.hide();
+		}
+		var $pwidth = dockable.placeholder.width();
+		if (dockable.dock.length > 0) {
+			if (!FORCE_SHOW) {
+				dockable.dock.find('.actions').hide();
+				dockable.dock.hide();
+			}
+			dockable.dock.css('width', dockable.placeholder.css('width'));
+			$(document).on('focus', ':input', function () {
+				if ($(this).offset().top + $(this).outerHeight() > dockable.window.scrollTop() + dockable.window.height() - dockable.dock.height()) {
+					if (dockable.dock.css("position") != "fixed" || $('html.ie8').length == 0) { // Why is anyone still using ie8? Didn't Frodo cast it into the fires of Mount Doom?
+						$('body,html,document').scrollTop($(this).offset().top + $(this).outerHeight() + dockable.dock.height() - dockable.window.height() + 50);
+					}
+				}
+			});
+			dockable.window.scroll(function () {
+        dockable.scroll();
+			});
+		}
+	}
+}
+$(document).on('click', '#dockable a.expand', function (e) {
+	e.preventDefault();
+	var $expander = $(this);
+	if ($expander.text() == 'details') {
+		$expander.text('collapse');
+	} else {
+		$expander.text('details');
+	}
+  dockable.toggleExpendable();
+})
+/*$(window).bind('touchmove', function(){
+ $dockable.css({ 'display': 'none'});
+ });*/
+
+function loadTemplate(tid, iid, jid) {
+	if ($('#templateEditor').children().length == 0) {
+		$.post('json.iml', {mdl: 'designOnline/edit.aj', DO_template_id: tid, DO_instance_id: iid}, function (d) {
+			if (iid == "") {
+				var jdata = [
+					{"name": "pid", "value": PREFS.Site_Dir},
+					{"name": "DEBUG", "value": "1"},
+					{"name": "JOB_Job_ID", "value": jid},
+					{"name": "JOB_Template_ID", "value": tid},
+					{"name": "JOB_Instance_ID", "value": d.instance_id},
+					{
+							"name": "JOB_Product_KEY",
+							"value": ($('.pricing_form').attr('Product_KEY')) ? $('.pricing_form').attr('Product_KEY') : ''
+					},
+					{
+							"name": "JOB_Form_ID",
+							"value": ($('.pricing_form').attr('ref_id') && $('.pricing_form').attr('ref_id') != '') ? $('.pricing_form').attr('ref_id') : ''
+					},
+					{"name": "mdl", "value": PREFS.OPC_Version_Path + "job_ticket/update_instance_id.aj"}
+				];
+				$.post('json.iml', jdata, function (rdata) {
+				}, 'json');
+			}
+			$('#templateForm,#steptwo').hide().css('visibility', '');
+			$('#stepone,#miniPricing').show();
+			$('#templateEditor').flash({
+				src: 'http' + ((location.protocol === 'https:') ? 's' : '') + '://www.templatecloud.com/templates_frontend/PDCRobot.swf?1325859802',
+				id: 'PDCRobot',
+				width: 951,
+				height: 800,
+				quality: 'high',
+				bgcolor: '#0000ff',
+				allowscriptaccess: 'always',
+				allownetworking: 'all',
+				allowfullscreen: 'true',
+				wmode: 'transparent',
+				base: 'templates_frontend',
+				flashvars: {
+					autoParams: 'friendlynames=true',
+					baseURL: 'https://www.templatecloud.com/api/',
+					continueURL: location.href.split('?')[0] + ((location.href.indexOf('EDIT_Job_ID') != -1) ? '?EDIT_Job_ID=' + location.href.split('EDIT_Job_ID=')[1].split('&')[0] : (location.href.indexOf('COPY_Job_ID') != -1) ? '?COPY_Job_ID=' + location.href.split('COPY_Job_ID=')[1].split('&')[0] : ''),
+					cancelURL: location.href.split('?')[0] + ((location.href.indexOf('EDIT_Job_ID') != -1) ? '?EDIT_Job_ID=' + location.href.split('EDIT_Job_ID=')[1].split('&')[0] + '&' : (location.href.indexOf('COPY_Job_ID') != -1) ? '?COPY_Job_ID=' + location.href.split('COPY_Job_ID=')[1].split('&')[0] + '&' : '?') + 'cancel_editor=1',
+					redirectURL: location.href.split('?')[0] + ((location.href.indexOf('EDIT_Job_ID') != -1) ? '?EDIT_Job_ID=' + location.href.split('EDIT_Job_ID=')[1].split('&')[0] : (location.href.indexOf('COPY_Job_ID') != -1) ? '?COPY_Job_ID=' + location.href.split('COPY_Job_ID=')[1].split('&')[0] : ''),
+					templateid: tid,
+					instanceid: d.instance_id,
+					customerid: d.customer_id,
+					locale: 'tc_US',
+					bleed: '1,50',
+					extraParam: '&asset_key=' + d.asset_key,
+					activeButtonColor1: '0xc8d756',
+					activeButtonColor2: '0xc8d756',
+					Lock_objects: false,
+					AllowFotoliaImages: ((PREFS.PostNet_Entry_Level) ? false : true ),
+					fotoliaSearchTerm: 'business'
+				}
+			}, {
+				version: 8
+			});
+			$('body,html,document').animate({scrollTop: $('.left.top').offset().top}, 1000);
+		});
+	} else {
+		$('#templateForm,#steptwo').hide().css('visibility', '');
+		$('#stepone,#miniPricing,#templateEditor').show();
+		$('body,html,document').animate({scrollTop: $('.left.top').offset().top}, 1000);
+	}
+}
+function saveInstance(jobid) {
+  window.location.href = PREFS.WEBBASE + "account/job/" + jobid;
+}
+function deleteInstance(jobid) {
+	var data = [
+		{"name": "pid", "value": PREFS.Site_Dir},
+		{"name": "DEBUG", "value": 1},
+		{"name": "JOB_Job_ID", "value": jobid},
+		{"name": "RETURN_Type", "value": "json"},
+		{"name": "mdl", "value": PREFS.OPC_Version_Path + "job_ticket/delete.mdl"}
+	];
+	$.post('json.iml', data, function () {
+		window.location.href = PREFS.WEBBASE + "design-online/" + location.href.split('/printing/')[1].split('/')[0];
+	}, 'json');
+}
+
+function orderFormReady() {
+	$('#product_order').find('.datepicker').each(function () {
+		$(this).datepicker('destroy').datepicker(
+			{'minDate': ($(this).data('datepast') == 1) ? null : new Date()},
+			{'dateFormat': ($(this).data('dateformat') && $(this).data('dateformat') != "") ? $(this).data('dateformat') : 'mm/dd/yy'}
+		);
+	});
+	$('a[rel=boxy], a#custom_quote').unbind('click');
+	$('a[rel=boxy]').boxy({
+		modal: true,
+		cache: true,
+		hideFade: true,
+		hideShrink: '',
+		afterShow: new Function('formatBoxy()')
+	});
+	$('a#custom_quote').live('click', function (e) {
+		e.preventDefault();
+		Boxy.get($(this)).hide();
+		Boxy.ask('<h4>Thank you!</h4><p>' + quoteSentMessage + '</p>', ["Home", "Your Account", "Continue Shopping"],
+		function (val) {
+			if (val == 'Home') {
+					window.location = PREFS.WEBBASE
+			} else if (val == 'Your Account') {
+					window.location = PREFS.WEBBASE + 'account/'
+			} else if (val == 'Continue Shopping') {
+					window.location = PREFS.WEBBASE + 'printing/'
+			}
+		}, {
+			title: 'Custom Quote Request Received',
+			modal: true,
+			cache: true,
+			hideFade: true,
+			hideShrink: '',
+			afterShow: new Function('formatBoxy()')
+		});
+	});
+	dockable.init();
+	moveable.init();
+  initialFieldValues = [];
+	if ($('input[name=EDIT_Job_ID]').val() != "") {
+		//loadJob($('input[name=EDIT_Job_ID]').val());
+	}
+	if ($('input[name=COPY_Job_ID]').val() != "") {
+		//loadJob($('input[name=COPY_Job_ID]').val());
+	}
+	$('input.dimension_field:checked, select.dimension_select').trigger('change');
+	$('.pricing_form').on('change', ':input', function () {
+		formStarted = true;
+	});
+	$('.inline-right.other:visible').css({'width': $('.inline-right:visible').eq(0).width() + 'px'});
+	$('.option-container:visible').slideUp(0);
+	$('.coloroptions input[type=radio]:checked').click();
+  $('#product_order[product_key]').find(':input[data-dependencies]:not(.hidden_input),input[data-dependencies][type=checkbox]:not(.hidden_input)').each( function() {
+    if(( ! $(this).is( ':radio' ) && ! $(this).is( ':checkbox' ) ) || $(this).is( ':checked' ) ) {
+      initialFieldValues = [];
+      if( triggerDependencies(this) ) {
+        initialFieldValues = [];
+        dependentElements.push(this);
+      }
+    }
+  });
+  function triggerNext(counter) {
+    if( counter < dependentElements.length ) {
+      initialFieldValues = [];
+      var $field = $(dependentElements[counter]);
+      while( $field.is('.hidden_input') && counter + 1 < dependentElements.length ) {
+        dependentElements.splice( counter, 1 );
+        $field = $(dependentElements[counter]);
+      }
+      if( ! $field.is('.hidden_input') ) {
+        $field.trigger($.Event('change',{'init':'1'})); // 'init' setting is for 1001/autofill_2011.js and 1001/autofill_multiple_2011.js - also used now in dependencies to speed things along during page initialization
+      }
+      counter+=1;
+      window.setTimeout( function() {
+        triggerNext(counter);
+      }, 20 ); // this should be long enough for the previous instance to complete 
+    }
+  }
+  if( dependentElements.length ) {
+    triggerNext(0);
+  }
+	$(':input[isqty]').trigger('weight_update');
+	$('input#Qty').focus().val($('input#Qty').val());
+	$('select#Qty').focus().val($('select#Qty').val());
+	if (/(\?|&)(EDIT|COPY)_Job_ID=[0-9]{2,}.*/.test(window.location.href)) {
+		$('#productInfo').find('select:not("data-dependencies")').not('#ADDR_AutoFill').trigger($.Event('change',{'init':'1'})); // 'init' setting is for 1001/autofill_2011.js and 1001/autofill_multiple_2011.js
+	} else {
+		$('#productInfo').find('select:not("[data-dependencies]")').trigger('change');
+	}
+	$('#productInfo').find('input[type=radio]:not(".turnaroundOther"):checked').trigger('click');
+	$('div.product').on('click', 'a.show_doc', function (e) {
+		e.preventDefault();
+		$(this).closest('.product').find('form').submit();
+	});
+	initTemplateSlides();
+	if (window.location.href.indexOf("#start") > -1) {
+		$('a.showPubForms').click();
+		$('a.showSystemForm').click();
+		$('a.backtocategory').show();
+	}
+	$('select.MylarTabColors').on('change', function () {
+		$(this).closest('.tab-selector').prev('div').find('input[type=radio]').prop('checked', 'checked');
+	});
+	window.setTimeout(function () {
+		$('input[name^=ColorChoices]:checked').trigger('price_update');
+	}, 1000);
+	$( 'aside.order_options li.active a.panel_show' ).click();
+  var height = $('#productscontainer').height();
+  if( height ) {
+    var top = $('#productscontainer').offset().top;
+    var maxTop = top + height;
+    $('#productscontainer').find('.cart-help.open-down').each( function() {
+      var $chc = $(this).find( '.cart-help-content' );
+      $chc.css({
+        'display': 'inline-block',
+        'font-weight': 'normal'
+      });
+      if( $chc.height()+$chc.offset().top > maxTop ) {
+        $(this).removeClass( 'open-down' );
+      }
+      $chc.removeAttr( 'style' );
+    });
+  }
+}
+
+$(document).ready(function () {
+	orderFormReady();
+});

@@ -1,0 +1,48 @@
+ #instantpricingform{ }
+ #instantpricingform .bump .icon { line-height:2px; font-size:2px; }
+ #instantpricingform .selectedline{  }
+ #instantpricingform .selectedline .bump{ width:15px; cursor: pointer;  }
+ #instantpricingform .selectedline .bump .icon{background-image:url(../images/down.png);   width:12px; height:13px; cursor: pointer;  }
+ #instantpricingform .unselectedline{  }
+ #instantpricingform .unselectedline .bump{width:15px; cursor: pointer;  }
+ #instantpricingform .unselectedline .bump .icon {background-image:url(../images/right.png); width:12px; height:13px; cursor: pointer;  }
+ #instantpricingform .newline .bump{ width:15px;  }
+ #instantpricingform .newline .bump .icon{ width:12px; height:15px; }
+ #instantpricingform .title{ font-weight:bold; width:350px;  }
+ #instantpricingform input.title{ width:300px;  }
+ #instantpricingform .unselectedline .contentRow{ display:none;  }
+ #instantpricingform .selectedline .contentRow{  }
+ #instantpricingform .contentCell{ padding:2px 15px 2px 15px;  }
+ #instantpricingform .contentCell .title{  width:310px;  }
+ #instantpricingform .contentCell .contentCell  .title{  width:270px;  }
+ #instantpricingform .pricing-grid td { vertical-align: top; }
+ 
+
+ #instantpricingform input.number{ width:50px;  }
+ 
+ 
+  
+#quote { margin: 0px; /* padding:20px; */}
+#quote .bump{ width:15px; cursor: pointer; font-size:2px; line-height:2px;  }
+#quote .bump .icon  {line-height:2px; font-size:2px; }
+#quote .detail .bump .icon  { background-image:url(../images/down.png);   width:12px; height:13px; cursor: pointer;  }
+#quote .hidedetail .bump .icon  { background-image:url(../images/right.png);  width:12px; height:13px; cursor: pointer;  }
+#quote .hidedetail .breakdown {display:none;}
+#quote .breakdown{  margin-bottom:12px;}
+#quote .header{ display:none;text-align:center; width:225; }
+#quote .segment{ padding:10px;   }
+#quote .segment table { width:225;}
+#quote .segment td.quantity { display:none; text-align: center; font-size:12px; padding-bottom:10px;}
+#quote .segment .sub{ text-align:right; width:180px; padding-right:15px; padding-bottom:10px; }
+#quote .segment .detail{ font-weight: bold; text-align:right; width:180px; font-size:12px; padding-right:15px;padding-bottom:10px;}
+#quote .segment .value{ font-weight: bold; padding-right:15px; padding-bottom:10px; white-space:nowrap;}
+#quote .segment input{ width: 60px; text-align:right;}
+#quote .pricingtxt { color: #646464; font-size: 12px; font-family: Arial, Helvetica, Geneva, Swiss, SunSans-Regular; font-weight: bold; vertical-align:top; padding: 0;}
+#quote .pricingbold { color: #323232; font-size: 12px; font-family: Arial, Helvetica, Geneva, Swiss, SunSans-Regular; font-weight: bold; vertical-align:top; padding: 0;}
+
+#quickquote { display: none; }
+ .fbElement #quickquote {    display:none; }
+ .fbElementHover #quickquote {    display:none; }
+ .fbElementEdit #quickquote {    display:none; }
+#quickquote .moredetails {color: #7e8ea5; font-weight: bold; cursor: pointer; }
+#quickquote .total {  color: #323232; font-weight:bold; }

@@ -1,0 +1,356 @@
+	/* $.cookie.defaults = { path: '/', secure: true, expires: 1, raw: true }; */
+
+	/*********** File Upload Functions ***********/
+	
+	$(document).on('click', ".open-send_file_sidebar", function(e){
+		$('#send_file_sidebar').slideDown(function(){ $(this).css('display','block'); });
+	});
+	
+	var filesInQueue = 0;
+	function init_draggable( $container ){
+		var $accountContainer = $container.closest('aside.account');
+		if ( $accountContainer.length > 0 ) {
+			$container.draggable('destroy');
+			$container.addClass('draggable');
+			$container.draggable({
+				revert: 'invalid',
+				zIndex: 100,
+				cursorAt: {
+					left: 20,
+					top: 20
+				},
+				cancel: "a.cancel_file, input, select, textarea",
+				helper: function(){return '<span style="cursor:move;background:white; border:1px solid #737373; border-radius:8px; line-height:12px; padding:5px;font-weight:bold;">'+$container.find('.file_name').text()+'</span>' }
+			});
+		}
+	}
+
+	init_droppables();
+	function sendFiles($uploadedFiles, JOB_Job_ID) {
+		JOB_Job_ID = typeof JOB_Job_ID !== 'undefined' ? JOB_Job_ID : 0;
+		$('.no_file_selected').slideUp();
+		var file_names_list = '';
+		$uploadedFiles.each(function(index){
+			file_names_list += '&file_names='+$(this).find('.file_name').text();
+		});
+		if($('.file_box.jobready').length==0) file_names_list+="&PDFJobReady_Not_Used=1";
+		if($('.file_box.fasttrack').length==0) file_names_list+="&FastTrack_Not_Used=1";
+		file_names_list+="&UPLOAD_Comments="+encodeURIComponent($('textarea[name=UPLOAD_Comments]').val());
+		$.post('json.iml', 'mdl='+PREFS.OPC_Version_Path+'account/send_file.aj&JOB_Job_ID='+JOB_Job_ID+file_names_list, function(data){
+			var status = data.status;
+			$('#open_orders').load('ajax_jquery.iml','mdl='+PREFS.OPC_Version_Path+'account/open_orders.mdl', function(){
+				init_droppables();
+				$('#search_filters').find('a.button.blue').trigger('click');
+			});
+			if ( data.status == 'success' ) {
+				$uploadedFiles.addClass('sent');
+				Boxy.load('ajax_jquery.iml?mdl=system/2011/account/popup-filesSent.mdl&JOB_Job_ID='+data.JOB_Job_ID+'&FILES='+data.success_files+'&NEW_JOB='+data.new_job+'&cXML_ID='+PREFS.cXML_ID, {
+					title:'File Transfer Complete',
+					hideFade:true,
+					hideShrink:'',
+					closeable: false,
+					afterShow:new Function( 'formatBoxy()' ),
+					afterHide:function(){ sendingFiles = false; }
+				});
+			} else {
+				Boxy.alert(data.message,
+					function(){
+						$uploadedFiles.slideUp(function(){
+							$(this).remove();
+							if ( $('#file_drawer').children('.ready_to_send').length < 1 ) {
+								$('.upload_comments').slideUp();
+								$('a[data-role=prepare_to-send_unattached]').attr('href','#');
+								$('#file_instr').slideUp(function(){
+									$('#send_file_sidebar').animate({'min-width':'0px'},function(){
+										$('textarea[name=UPLOAD_Comments]').val('');
+										$('#send_file_sidebar').draggable('destroy');
+										$('#send_file_sidebar').animate({'left':0,'top':0});
+										$('aside .expendable').fadeIn();
+									});
+								});
+							}
+							$('.no_file_selected').slideDown();
+							/* $.cookie('files_pending', '', { path: '/' }); */
+						});
+					},
+					{
+						title: 'File Transfer',
+						hideFade:true,
+						hideShrink:'',
+						afterShow:new Function( 'formatBoxy()' ),
+						afterHide:function(){ sendingFiles = false; }
+					}
+				);
+			}
+		}, 'json');
+	}
+	$(document).on('submit', "form[data-role=file-feedback]", function(e){
+		if($(this).closest('#send_file_popup').length==0) {
+			var $uploadedFiles = $('.file_box.sent');
+			Boxy.get(this).hide(function(){
+				$uploadedFiles.slideUp(function(){
+					$(this).remove();
+					if ( $('#file_drawer').children('.ready_to_send').length < 1 ) {
+						$('.upload_comments').slideUp();
+						$('a[data-role=prepare_to-send_unattached]').attr('href','#');
+						$('#file_instr').slideUp(function(){
+							$('#send_file_sidebar').animate({'min-width':'0px'},function(){
+								$('textarea[name=UPLOAD_Comments]').val('');
+								$('#send_file_sidebar').draggable('destroy');
+								$('#send_file_sidebar').animate({'left':0,'top':0});
+								$('aside .expendable').fadeIn();
+							});
+						});
+					}
+					$('.no_file_selected').slideDown();
+					/* $.cookie('files_pending', '', { path: '/' }); */
+				});
+			});
+		}
+	});
+
+var progressBarStopped=false;
+function progressBarJSON($container, started){
+	$progress_bar = $container.find('.progress .bar');
+	$file_upload = $container.find('input[type=file]');
+	if(!started){ progressBarStopped=false;  $progress_bar.css('width','0px').end().show(); }
+  if(!progressBarStopped) $.post('progressJSON.iml',{status:(!started?'RESET':'')},function(data){
+    if(data.total>0){
+      $progress_bar.css('width',(data.current/data.total)*100+'%');
+    }else if(data.status=='done'){
+      $progress_bar.css('width','100%');
+    }
+    if(data.status!='done') window.progressBar = setTimeout(function() { progressBarJSON( $container, true); },5000);
+  },'json')
+}
+
+
+//  get all applicable form data from visible elements.
+function getFormData(){ return $('.filterblock.active :input,a.active :input').serializeArray().concat([{name:'pid',value:PREFS.Site_Dir}/* ,{'name':'DEBUG','value':'1'} */]); }
+
+var fileUploadCallback=null;
+function submitJSON(data,container,callback){
+  if(container.find(':input[type="file"]').length>0){
+    fileUploadCallback=callback;
+    var form=container.find('form');
+    if(form.length==0){
+			var my_input = container.find('input[type=file]');
+			var my_input_id = my_input.val().replace(/[^a-zA-Z 0-9_]+/g,'');
+			container.after('<iframe id="'+my_input_id+'" name="'+my_input_id+'" height="0" width="0" src="blank.html" frameborder="0" scrolling="no" style="display:none;"></iframe>');
+      form=container.wrapInner('<form action="jsonIframe.iml" target="'+my_input_id+'" method="post" enctype="multipart/form-data" />').find('form');
+      $.each(data,function(i,item){
+        form.append($('<input type="hidden" name="'+item.name+'" value="'+item.value+'" />'));
+      });
+    }else{
+      $.each(data,function(i,item){
+        if(form.find('input[name="'+item.name+'"]').length==0)
+          form.append($('<input type="hidden" name="'+item.name+'" value="'+item.value+'" />'));
+        else form.find('input[name="'+item.name+'"]').val(item.value);
+      });
+    }
+    if(container.attr('update')&&container.attr('update')!=''){
+      if(form.find('input[name="mdl"]').length==0)
+        form.append($('<input type="hidden" name="mdl" value="'+container.attr('update')+'" />'));
+      else form.find('input[name="mdl"]').val(container.attr('update'));      
+    }
+    if(form.find('input[name="jsonp"]').length==0)
+      form.append($('<input type="hidden" name="jsonp" value="fileUploadCallback" />'));
+    else form.find('input[name="jsonp"]').val('fileUploadCallback');              
+    form.get(0).submit();
+    if(container.find('.progress').length>0)  progressBarJSON( container );
+  }else{
+    data=data.concat(container.find(':input').serializeArray());
+    if(container.attr('update')&&container.attr('update')!='')
+      data[data.length]={'name':'mdl', 'value':container.attr('update')};
+    $.post('json.iml',data,function(data){callback(data,container); },'json');
+  }  
+}
+
+$(function(){
+	$file_box_clone = $('.file_box[data-role=prototype]').eq(0).clone(true,true);
+	$file_box_clone.find('label.file_upload_wrap').removeClass('green').addClass('opc-bg-color');
+});
+
+	$('body').on('click', '.prepare_to_upload', function(e) {
+		e.preventDefault();
+		$(this).closest('.file_widget').find('.file_upload').slideDown();
+	});
+
+	$('body').on('click', ".cancel_file", function(e) {
+		e.preventDefault();
+		if($(this).closest('#send_file_popup').length==0) {
+			var $container = $(this).closest('.file_box');
+			var $thisFileDrawer = $container.closest('#file_drawer');
+			var $fileUploadWidget = $thisFileDrawer.find('.no_file_selected');
+			var $file_upload_iframe = $container.next('iframe');
+			Boxy.confirm("Are you sure you wish to remove this file from your upload list?",
+				function(){
+					if ( $fileUploadWidget.length < 1 ) {
+						$file_box_clone.clone(true,true).appendTo( $thisFileDrawer );
+					}
+					$file_upload_iframe.remove();
+					if ( $container.hasClass('uploading') ) {
+						window.clearTimeout(window.progressBar);
+						progressBarStopped = true;
+						$container.removeClass('uploading');
+						filesInQueue--;
+						$('body').dequeue('send_file');
+					} else if ( !$container.hasClass('jobready') && !$container.hasClass('fasttrack') && $container.hasClass('in_queue') ) {
+						filesInQueue--;
+					}
+					$container.slideUp(function(){
+						$(this).remove();
+						if ( $('#file_drawer').children('.ready_to_send').length < 1 ) {
+							$('.upload_comments').slideUp();
+							$('a[data-role=prepare_to-send_unattached]').attr('href','#');
+							$('#file_instr').slideUp(function(){
+								$('#send_file_sidebar').animate({'min-width':'0px'},function(){
+									$('textarea[name=UPLOAD_Comments]').val('');
+									$('#send_file_sidebar').draggable('destroy');
+									$('#send_file_sidebar').animate({'left':0,'top':0});
+									$('aside .expendable').fadeIn();
+								});
+							});
+						}
+					});
+				},
+				{
+					title: 'Cancel File Upload',
+					hideFade:true,
+					hideShrink:'',
+					afterShow:new Function( 'formatBoxy()' )
+				}
+			);
+		}
+	});
+
+	$(document).on('change', "input[name=UPLOAD_File]", function(e) {
+		if($(this).closest('#send_file_popup').length==0) {
+			var $instance = $(this);
+			var $container = $instance.closest('.file_box');
+			var $thisFileDrawer = $container.closest('#file_drawer');
+			var max_files = $thisFileDrawer.closest('[data-max_files]').data('max_files');
+			if ( !max_files ) max_files = 7;
+			max_files = 99;
+			var $fileName = $container.find('.file_name');
+			var $fileStatus = $container.find('.status');
+			var $fileIcon = $container.find('.file_icon');
+			var $uploadWrap = $container.find('.file_upload_wrap');
+			var $wrap = $container.find('.file_wrap');
+			var $progress = $container.find('.progress');
+
+			var path = $instance.val();
+			var file_name = path.substr(path.lastIndexOf('\\') + 1);
+			var extension = file_name.substr(file_name.lastIndexOf('\.') + 1);
+			$fileName.text( file_name ).attr('title', file_name)/*.attr('href', PREFS.SECUREBASE + 'download.iml?file='+PREFS.Site_Dir+'/'+file_name) - We don't know the final file name, yet.*/;
+			$fileIcon.addClass( extension ).attr('title', file_name)/*.attr('href', PREFS.SECUREBASE + 'download.iml?file='+PREFS.Site_Dir+'/'+file_name) - We don't know the final file name, yet.*/;
+			
+			$uploadWrap.slideUp();
+			
+			$wrap.slideDown();
+			
+			$fileStatus.text( 'Waiting...' );
+			$container.removeClass('no_file_selected');
+			$container.addClass('in_queue');
+			
+			if ( $thisFileDrawer.find('.file_box').length < max_files ) {
+				$file_box_clone.clone(true,true).appendTo( $thisFileDrawer );
+			}
+			
+			filesInQueue++;
+			$('body').queue('send_file', function(next) {
+				$nextToUpload = $('.in_queue').first();
+				$nextToUpload.find('.status').text( 'Uploading...' );
+				$nextToUpload.removeClass( 'in_queue' );
+				$nextToUpload.addClass( 'uploading' );
+				$nextToUpload.find('.progress').fadeIn();
+				submitJSON( [{ 'name': 'mdl', 'value': PREFS.OPC_Version_Path + 'account/uploadFile.aj' }] , $nextToUpload, function(data, container){
+					$uploading = $('.file_box.uploading');
+					$uploading.find('.file_name').text( data.File_Name).attr('title', data.File_Name)/*.attr('href', PREFS.SECUREBASE + 'download.iml?file='+PREFS.Site_Dir+'/'+data.File_Name).off('click')*/;
+					$uploading.find('.file_icon').attr('title', data.File_Name)/*.attr('href', PREFS.SECUREBASE + 'download.iml?file='+PREFS.Site_Dir+'/'+data.File_Name).off('click')*/;
+					$uploading.find('input[name=file_name]').val( data.File_Name ).change();
+					/* $('a[href="#order_summary"]').click(); */
+					$uploading.find('.progress').fadeOut();
+					$uploading.find('.status').text( 'Ready' );
+					$uploading.addClass('ready_to_send');
+					$uploading.attr('title', $uploading.data('title') );
+					$uploading.removeClass('uploading');
+					if( $('#send_file_sidebar').length > 0 ) {
+						if( PREFS.BYPASS_Send_File_Choice == 1 ) {
+							$uploading.find('.status').text( 'Sending...' );
+							sendFiles( $uploading );
+						} else {
+							init_draggable( $uploading );
+							$('#send_file_sidebar').animate({'min-width':'600px'},function(){
+								$('#file_instr').slideDown(function(){
+									$('aside .expendable').fadeOut(function(){
+										$('#send_file_sidebar').draggable({cancel: "a, input, select, textarea"});
+									});
+								});
+							});
+						}
+					}
+					filesInQueue--;
+					next();
+				});
+			});
+				
+			if( filesInQueue == 1 ) {
+				$('body').dequeue('send_file');
+			}
+		}
+	});
+	
+	$(document).on('click', "a[data-role=sendFiles-newJob]", function(e){
+		e.preventDefault();
+		if($(this).closest('#send_file_popup').length==0) {
+			filesInQueue++;
+			$('.file_box.no_file_selected').slideUp();
+			var PATH_2 = $('select[name=PATH_2] option:selected', $('aside.account') ).val();
+			var formAction = 'printing/'+PATH_2+'/';
+			$('#file_instr')
+				.slideUp()
+				.after('<p style="padding:5px 10px">You will be redirected to the '+PATH_2+' order form when your files have finished uploading</p>')
+			;
+			$('body').queue('send_file', function(next) {
+				$('.ready_to_send input[name=file_name]', $("#file_drawer") ).each(function(index){
+					$('#sendFiles-newJob').append( $(this) );
+					$('#sendFiles-newJob').attr('action', formAction);
+					$('#sendFiles-newJob').submit();
+				});
+			});
+			if( filesInQueue == 1 ) {
+				$('body').dequeue('send_file');
+			}
+		}
+	});
+	/* $(document).on('click', "a[data-role=createOrderFromFiles]", function(e){
+		e.preventDefault();
+		if($(this).closest('#send_file_popup').length==0) {
+			var $thisJob = $(this).closest('.job');
+			var $thisForm = $thisJob.find('form');
+			var PATH_2 = $('select[name=PATH_2] option:selected', $thisForm).val();
+			var formAction = 'printing/'+PATH_2+'/';
+			$thisForm.attr('action', formAction);
+			$thisForm.submit();
+		}
+	}); */
+	
+	$(document)
+		.on('click', "a[data-role=prepare_to-send_unattached]", function(e){
+			$('.upload_comments').slideDown();
+			$(this).removeAttr('href');
+		})
+		.on('click', "a[data-role=send_unattached]", function(e){
+			e.preventDefault();
+			if($(this).closest('#send_file_popup').length==0) {
+				if ( !sendingFiles ) {
+					sendingFiles = true;
+					$uploadedFiles = $('#file_drawer').children('.ready_to_send');
+					if ( $uploadedFiles.length > 0 ) {
+						sendFiles($uploadedFiles);
+					}
+				}
+			}
+		});
+var sendingFiles = false;

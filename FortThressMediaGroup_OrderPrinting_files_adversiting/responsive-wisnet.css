@@ -1,0 +1,513 @@
+/*https://bronson.secureprintorder.com/resources/greatest-treasures/*/
+
+#treasure-links .left{
+    padding-right: 20px;
+  }
+  
+  @media only screen and ( max-width: 531px ){
+      div#treasure-intro img{
+          float: none;
+          max-width: 100%;
+          margin: auto;
+          margin-bottom: 20px;
+          display: block;
+      }
+      #treasure-links .left, #treasure-links .right{
+          width: 100%;
+      }
+      #treasure-links .left{
+          padding-right: 0;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/resources/the-ideas-collection/*/
+  
+  @media only screen and ( max-width: 583px ){
+      #ideaTabs ul#ideaTabsNav{
+          width: 100%;
+      }
+      #ideaTabs div.ideasTabsPanel, #ideaTabs div.ui-tabs-panel {
+          top: 104px;
+      }
+      .ui-tabs{
+          padding: 0;
+      }
+      #ideaTabs ul#ideaTabsNav > li {
+          float: none;
+      }
+      #ideaTabs ul#ideaTabsNav li a{
+          width: 100%;
+          border-radius: 0;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/resources/glossary-of-printing-terms/*/
+  
+  @media only screen and ( max-width: 456px ){
+      div#glossary ul li {
+          margin: 0 4px 4px 0;
+      }
+      div#glossary-intro > img {
+          float: none;
+          max-width: 100%;
+          margin: auto;
+          margin-bottom: 0;
+          display: block;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/resources/our-business-forum-newsletter/ & whitepages*/
+  
+  .periodical-row{
+      display: inline !important;
+      width: auto  !important;
+      height: auto  !important;
+      vertical-align: bottom;
+  }
+  
+  .periodical-thumb{
+      position: relative;
+  }
+    .periodical-thumb img {
+        max-width: unset;
+    }
+  .periodical-date{
+      display: none;
+      background: #f4f4f4;
+      background: -moz-linear-gradient(top, #f4f4f4 0%, #87898c 100%);
+      background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#f4f4f4), color-stop(100%,#87898c));
+      background: -webkit-linear-gradient(top, #f4f4f4 0%,#87898c 100%);
+      background: -o-linear-gradient(top, #f4f4f4 0%,#87898c 100%);
+      background: -ms-linear-gradient(top, #f4f4f4 0%,#87898c 100%);
+      filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#f4f4f4', endColorstr='#87898c',GradientType=0 );
+      background: linear-gradient(top, #f4f4f4 0%,#87898c 100%);
+      margin-top: 0;
+      margin-bottom: 0;
+      font: bold 11px/14px Arial, sans-serif !important;
+      color: #434244 !important;
+      text-align: center;
+      padding: 1px;
+  }
+  
+  @media only screen and ( max-width: 834px ){
+      #periodical-library {
+          margin-bottom: 42px;
+      }
+      #periodical-library .periodical-group{
+          background: none;
+          margin-top: 0;
+      }
+      .periodical-group:before,
+      .periodical-group:after {
+          content: " ";
+          display: table;
+      }
+  
+      .periodical-group:after {
+          clear: both;
+      }
+      .periodical-group {
+          *zoom: 1;
+      }
+      #periodical-library .periodical-group a{
+          height: auto;
+          width: 50%;
+          margin-bottom: 20px;
+          float: left;
+          border: 3px solid #fff;
+      }
+      .periodical-shelf{
+          display: none;
+      }
+      .periodical-date{
+          display: block;
+          border-radius: 8px;
+          height: auto;
+          white-space: nowrap;
+          overflow: hidden;
+      }
+  }
+  @media only screen and ( max-width: 475px ){
+      #periodical-library .periodical-group a{
+          width: 100%;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/resources/whats-new/*/
+  
+  @media only screen and ( max-width: 565px ){
+      .whats_new .whats_new_archive{
+          width: 100%;
+      }
+      ul#whats_new_archive_list {
+          padding-left: 21px;
+      }
+      ul#whats_new_archive_list a {
+          font-size: 16px;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/resources/sales-and-marketing-white-papers/Rebranding/*/
+  
+  @media only screen and ( max-width: 938px ){
+      .sales-and-marketing-white-papers #content{
+          padding: 0;
+      }
+      .sales-and-marketing-white-papers #periodical-dest{
+          margin-bottom: 30px;
+      }
+  
+      .periodical .periodical-box .periodical-sample .periodical-body {
+          float: none;
+          width: 100%;
+          padding-left: 20px;
+          margin-bottom: 30px;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/resources/the-ideas-collection/nourish-creativity-with-a-visual-diary/*/
+  
+  @media only screen and ( max-width: 895px ){
+      #ideaPage, #ideaList{
+          width: 100%;
+          float: none;
+      }
+      .amazon-toggle{
+          margin-bottom: 30px;
+      }
+  }
+  
+  @media only screen and ( max-width: 535px ){
+      div.ideaHeader h3 a{
+          width: 100%;
+          margin: 20px 0px;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/help-center*/
+  
+  @media only screen and ( max-width: 632px ){
+      #help-center.main_page{
+          margin: 39px 0;
+      }
+      #help-center-content div.opc_rep {
+          padding-top: 24px;
+          display: block;
+          float: none;
+          text-align: center;
+      }
+      #help-center-content div.opc_rep img{
+          display: inline;
+      }
+  }
+  
+  @media only screen and ( max-width: 450px ){
+      #help-center-content > div > ul > li{
+          margin: 0;
+      }
+      #help-center-content > div > ul > li:last-child {
+          padding-right: 0;
+      }
+  }
+  
+  /*https://bronson.secureprintorder.com/feature/who-is-bronson-print/*/
+  
+  @media only screen and ( max-width: 998px ){
+  
+  }
+  
+  @media only screen and ( max-width: 606px ){
+      div.whois-header {
+          width: 100%;
+      }
+      div.whois-header h3{
+          width: 100%;
+          min-width: 100%;
+      }
+      div.whois-item{
+          width: 100%;
+      }
+  }
+  
+  @media only screen and ( max-width: 419px ){
+      .whois-header{
+          margin-bottom: 20px;
+      }
+      div.whois-item {
+          display: block;
+          margin-bottom: 30px;
+      }
+      div.whois-item h4{
+          display: block;
+          padding: 0;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/feature/presidents-letter/*/
+  
+  @media only screen and ( max-width: 588px ){
+      div.letter{
+          width: 100%;
+          padding: 15px;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/feature/meet-our-staff/435450/*/
+  
+  @media only screen and ( max-width: 676px ){
+      .team-member-container{
+          width: 100% !important;
+      }
+      .bar-gray{
+          width: 100% !important;
+          min-width: 100% !important;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/contact-us/*/
+  
+  @media only screen and ( max-width: 579px ){
+      #connect {
+          float: none;
+          width: 100%;
+          margin-top: 25px;
+          margin-bottom: 55px;
+          border: 1px solid #fff;
+      }
+      #contact-info{
+          width: 100%;
+      }
+      #staff{
+          margin-bottom: 30px;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/help-center/udesignit/*/
+  
+  @media only screen and ( max-width: 939px ){
+      #help-center-content.udesignit {
+          width: 100%;
+          background-size: 50%;
+          background-position: right 156px;
+      }
+  }
+  
+  
+  
+  
+  @media only screen and ( max-width: 907px ){
+      .feature-extra .pf_highlights {
+          float: left !important;
+          width: 50% !important;
+      }
+      .feature-extra .pf_instructions, .feature-extra .pf_form {
+          width: 50% !important;
+      }
+      #help-center-content .feature-extra .pf_form ol {
+          padding: 0 !important;
+      }
+      .feature-extra .pf_highlights div{
+          width: 100%;
+      }
+      #help-center-content .feature-extra h3{
+          font-size: 14px !important;
+      }
+  }
+  
+  @media only screen and ( max-width: 835px ){
+      .feature-extra .pf_highlights {
+          width: 100% !important;
+          padding-top: 0!important;
+      }
+      .feature-extra .pf_instructions, .feature-extra .pf_form {
+          width: 100% !important;
+      }
+      .feature-extra .pf_highlights div{
+          background: none !important;
+          width: 100% !important;
+          padding: 0 !important;
+          margin-bottom: 20px !important;
+          padding-left: 20px !important;
+      }
+  
+      #help-center-content .feature-extra h3 {
+          font-size: 14px !important;
+          width: 100% !important;
+          padding: 0 !important;
+          margin-top: 0 !important;
+          border: none !important;
+          box-shadow: none !important;
+      }
+      #help-center-content .feature-extra .pf_highlights h3:before {
+          content: " ";
+          height: 10px;
+          width: 10px;
+          position: relative;
+          background: #767676;
+          display: inline-block;
+          margin-right: 6px;
+      }
+      #help-center-content h4 {
+          padding-bottom: 0 !important;
+      }
+      #help-center-content .feature-extra{
+          padding-right: 0 !important;
+          padding-left: 0 !important;
+      }
+  }
+  
+  
+  
+  
+  
+  
+  @media only screen and ( max-width: 890px ){
+      .feature-extra .pf_image hgroup{
+          width: 100% !important;
+          float: none !important;
+          padding-top: 0 !important;
+      }
+      .feature-extra .pf_image hgroup h2{
+          margin-top: 0 !important;
+      }
+      .feature-extra .pf_image div {
+          float: none !important;
+          margin: 40px 0;
+      }
+      .feature-extra .pf_sample {
+          padding-top: 0 !important;
+      }
+  }
+  
+  
+  
+  
+  @media only screen and ( max-width: 592px ){
+      #help-center-content.udesignit {
+          background: none !important;
+      }
+      #help-center-content.udesignit div.video {
+          width: 100%;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/FastTrack/*/
+  
+  @media only screen and ( max-width: 706px ){
+      .fasttrack-col-1 {
+          float: none;
+          width: 100%;
+      }
+  }
+  
+  @media only screen and ( max-width: 825px ){
+      .fasttrack-steps {
+          width: 100%;
+      }
+      .fasttrack-download {
+          padding: 40px;
+      }
+  }
+  
+  @media only screen and ( max-width: 541px ){
+      .fasttrack-page {
+          padding: 0px;
+      }
+      .fasttrack-download {
+          padding: 40px 20px;
+      }
+      .fasttrack-steps ol{
+          padding-left: 10px;
+      }
+      .fasttrack-download-links ul{
+          padding-left: 10px;
+      }
+      .fasttrack-download-links ul > li a[rel=tipsy]{
+          margin: 20px 0;
+      }
+  }
+  
+  @media only screen and ( max-width: 406px ){
+      .fasttrack-steps ol {
+          padding-left: 10px;
+          margin-bottom: 36px;
+      }
+      .fasttrack-steps li {
+          height: auto;
+      }
+  }
+  
+  
+  /*https://bronson.secureprintorder.com/help-center/file-prep-101-start-here/*/
+  
+  #help-center-section{
+      float: right;
+  }
+  
+  @media only screen and ( max-width: 982px ){
+      #help-center-section{
+          float: none;
+          margin-left: 0;
+          width: 100%;
+          max-width: 100%;
+      }
+      #help-center-aside {
+          margin-top: 39px;
+          margin-left: 0;
+          float: none;
+      }
+      #help-center-aside > ul{
+          width: 100%;
+      }
+  }
+  
+  /*https://bronson.secureprintorder.com/help-center/preparing-artwork-files/*/
+  
+  @media only screen and ( max-width: 497px ){
+      #help-center-section > div.hc-tab > ul {
+          display: block;
+          vertical-align: top;
+          width: 100%;
+          padding-left: 10px;
+      }
+      #help-center-section div.hc-tab h4 {
+          font-size: 19px;
+      }
+  }
+  
+  /*https://bronson.secureprintorder.com/help-center/the-document-library/*/
+  
+  @media only screen and ( max-width: 750px ){
+      #help-center-content{
+          width: 100%;
+          float: none;
+          margin-left: 0;
+      }
+      #product-tabs .product div.product_info {
+        width: 100% !important;
+        margin-left: 0;
+      }
+  }
+  
+  /*https://bronson.secureprintorder.com/help-center/layout-templates/*/
+  
+  @media only screen and ( max-width: 553px ){
+      body #help-center-section ul.fa-list.templates{
+          width: 100% !important;
+      }
+      .fa-list + a img{
+          margin-left: 0 !important;
+      }
+  }

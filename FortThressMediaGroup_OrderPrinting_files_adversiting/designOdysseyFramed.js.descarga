@@ -1,0 +1,119 @@
+var targetWindow = window.parent;
+var targetScrolling = null;
+var thisDocument = document.documentElement || document.body;
+if( targetWindow && targetWindow !== window ) {
+  var mi4pFrame = {
+    srcSent: false,
+    scrollReceived: false,
+    animated: {
+      boxy: null,
+      dock: null,
+      cart: null
+    },
+    scrolling: {
+      boxy: null,
+      dock: null,
+      cart: null
+    },
+    top: 0,
+    height: thisDocument.offsetHeight,
+    offset: 0,
+    previousTop: 0,
+    boxyScrolling: false
+  };
+  mi4pFrame.animate = function(el, fixedTop, type, timeout) {
+    if( mi4pFrame.animated[type] ) window.clearTimeout( mi4pFrame.animated[type] );
+    if( mi4pFrame.scrolling[type] ) window.clearTimeout( mi4pFrame.scrolling[type] );
+    if( ! timeout ) timeout = 500;
+    mi4pFrame.animated[type] = window.setTimeout( function() {
+      mi4pFrame.scroll( el, fixedTop, type );
+    }, timeout );
+  };
+  mi4pFrame.scroll = function(el, fixedTop, type) {
+    var start, destination, minStart, maxStart, height, increment, maxTop, minTop;
+    if( el ) {
+      height = el.offsetHeight;
+      if( ! isNaN( height ) ) {
+        start = parseFloat( el.style.top );
+        if( isNaN( start ) ) start = 0;
+        start = Math.round( start );
+        destination = mi4pFrame.top + fixedTop;
+        if( height > mi4pFrame.height && type === "boxy" ) {
+          minTop = mi4pFrame.top + mi4pFrame.height - el.offsetHeight;
+          maxTop = mi4pFrame.top + el.offsetHeight - mi4pFrame.height;
+          if( destination > maxTop ) destination = maxTop;
+          if( destination < minTop ) destination = minTop;
+        }
+        maxStart = mi4pFrame.top + mi4pFrame.offset + mi4pFrame.height + 500;
+        minStart = mi4pFrame.top + mi4pFrame.offset - height - 500;
+        if( start > maxStart ) start = maxStart;
+        if( start < minStart ) start = minStart;
+        increment = ( start > destination ) ? -10 : 10;
+        start += increment;
+        if( increment > 0 && start > destination ) start = destination;
+        if( increment < 0 && start < destination ) start = destination;
+        el.style.top = start + "px";
+        if( start === destination ) {
+          mi4pFrame.animated[type] = null;
+          mi4pFrame.scrolling[type] = null;
+        } else {
+          mi4pFrame.scrolling[type] = window.setTimeout( function() {
+            mi4pFrame.scroll( el, fixedTop, type );
+          }, 1 );
+        }
+      }
+    }
+  };
+  mi4pFrame.enterFullScreen = function() {
+    targetWindow.postMessage( { 'type': 'expand' }, '*' );
+  };
+  mi4pFrame.exitFullScreen = function() {
+    targetWindow.postMessage( { 'type': 'contract' }, '*' );
+  };
+  targetWindow.postMessage( { 'type': 'src', 'src': PREFS.pathname }, '*' );
+  mi4pFrame.srcSent = true;
+  if( typeof displayMCSDesignEditMessage === "undefined" ) {
+    if (window.addEventListener) {
+      // For standards-compliant web browsers
+      window.addEventListener("message", getOdyParentMessage, false);
+    }
+    else {
+      window.attachEvent("onmessage", getOdyParentMessage);
+    }
+  }
+  function getOdyParentMessage(evt) {
+    if( evt && evt.data ) {
+      log(evt.data);
+      if( evt.data.refresh ) {
+        $(document.head.getElementsByTagName('style')[0]).load( 'ajax_jquery.iml?mdl=designOdysseyFramed/design_css.mdl?id=' + new Date().getTime() );
+      } else if( evt.data.reload ) {
+        window.location.reload();
+      } else if( evt.data.scroll ) {
+        mi4pFrame.scrollReceived = true;
+        for( var key in mi4pFrame.animated ) {
+          if( mi4pFrame.animated[key] ) window.clearTimeout( mi4pFrame.animated[key] );
+        }
+        for( var key in mi4pFrame.scrolling ) {
+          if( mi4pFrame.scrolling[key] ) window.clearTimeout( mi4pFrame.scrolling[key] );
+        }
+        mi4pFrame.previousTop = mi4pFrame.top;
+        mi4pFrame.height = evt.data.scroll.height;
+        mi4pFrame.top = evt.data.scroll.top;
+        mi4pFrame.offset = evt.data.scroll.offset;
+        if( typeof scrollBoxy === "function" ) {
+          scrollBoxy();
+        }
+        if( typeof scrollCartFooter === "function" ) {
+          scrollCartFooter();
+        }
+        if( typeof moveable === "object" && moveable && typeof moveable.scroll === "function" ) {
+          moveable.scroll();
+        }
+        if( typeof dockable === "object" && dockable && typeof dockable.scroll === "function" ) {
+          dockable.scroll();
+        }
+      }
+    }
+  }
+  if( typeof $window !== "undefined" ) $window = $( targetWindow );
+}

@@ -1,0 +1,157 @@
+
+function ListBoxObject(dest,listmdl,rpp,totalrec,passin,printer){
+  this.dest=dest;
+  this.mdl=listmdl;
+  this.rpp=rpp;
+  this.original_rpp=rpp;
+  this.start=0;
+  this.passIn=passin;
+  this.total=totalrec;
+  this.mustLoad=false;
+  var params=new AjaxFormContent();
+  params.addNameValue('mdl','list_box/resource.aj');
+  if(PREFS.cXML_ID&&PREFS.cXML_ID>0) params.addNameValue('cXML_ID',PREFS.cXML_ID);
+  if(printer) params.addNameValue('PRINTER_FRIENDLY','1');
+  var instance=this;
+  ajaxPostFunction(params,function(sc,st,rt,rxml){  
+        instance.dest.innerHTML=rt;
+        instance.processResource();
+     },
+     "ajax.iml");    
+}
+ListBoxObject.prototype.processResource=function(){
+  var instance=this;
+  this.destHTML=new HTMLParse(this.dest);  
+  this.destHTML.pos[0].node.innerHTML="";
+  this.destHTML.nav[0].link[0].node.onclick=function(evt){instance.first();return false;};
+  this.destHTML.nav[1].link[0].node.onclick=function(evt){instance.prev();return false;};
+  this.destHTML.nav[2].link[0].node.onclick=function(evt){instance.all();return false;};
+  this.destHTML.nav[3].link[0].node.onclick=function(evt){instance.next();return false;};
+  this.destHTML.nav[4].link[0].node.onclick=function(evt){instance.last();return false;};
+  if(this.destHTML.printer){
+    this.destHTML.printer[0].node.onclick=function(evt){instance.print();return false;};
+    this.destHTML.printer[1].node.onclick=function(evt){instance.print();return false;};
+  }
+  this.load();
+}
+
+
+ListBoxObject.prototype.load=function(){
+  this.showNav();
+  this.destHTML.content[0].node.style["display"]="none";
+  var params=new AjaxFormContent();
+  params.addNameValue('mdl',this.mdl);
+  params.addNameValue('RECORD_START',this.start);
+  params.addNameValue('RPP',this.rpp);
+  if(PREFS.cXML_ID&&PREFS.cXML_ID>0) params.addNameValue('cXML_ID',PREFS.cXML_ID);
+  for(var i=0;i<this.passIn.length; i++){
+    params.addNameValue(this.passIn[i][0],this.passIn[i][1]);
+  }
+  var instance=this;
+  ajaxPostFunction(params,function(sc,st,rt,rxml){  
+      var res=new HTMLParse(rt);
+      instance.destHTML.content[0].node.innerHTML=res.LIST_DIV[0].node.innerHTML;      
+      instance.destHTML.content[0].node.style["display"]="";
+      instance.showNav();
+     },"ajax.iml");
+}
+
+ListBoxObject.prototype.showNav=function(){  
+  var instance=this;
+  if(this.start==0){
+    this.destHTML.nav[0].node.style["display"]="none";
+    this.destHTML.nav[1].node.style["display"]="none";
+  }else{
+    this.destHTML.nav[0].node.style["display"]="";
+    this.destHTML.nav[1].node.style["display"]="";
+  }
+  
+  if(this.start>=this.total-this.rpp){
+    this.destHTML.nav[3].node.style["display"]="none";
+    this.destHTML.nav[4].node.style["display"]="none";
+  }else{
+    this.destHTML.nav[3].node.style["display"]="";
+    this.destHTML.nav[4].node.style["display"]="";
+  }
+    
+  if(this.total>0){  
+    var last_record_shown=Number(this.start)+Number(this.rpp);
+    if(last_record_shown>this.total)last_record_shown=this.total;
+    this.destHTML.pos[0].node.innerHTML=this.start+1+" - "+last_record_shown+" of "+this.total;
+  }
+  
+  var page_start=0;
+  var page_end=this.total;
+  var page=this.destHTML.pages[0].node;
+  if(this.total>20*this.rpp&&this.start>10*this.rpp) page_start=this.start-10*this.rpp;
+  if(page_end>page_start+20*this.rpp)page_end=page_start+20*this.rpp;
+  page.innerHTML='';
+  if(this.total<=this.rpp){    
+    this.destHTML.nav[2].node.style["display"]="none";
+  }else{
+    this.destHTML.nav[2].node.style["display"]="";
+    var span, a;
+    for(var i=page_start; i<page_end; i+=this.rpp){
+      span=ce('span'); span.style["paddingLeft"]="5px";      
+      if(i==this.start)span.innerHTML="("+(i/this.rpp+1)+")";
+      else {
+        a=ce('a'); a.setAttribute('goto',i); a.onclick=function(evt){instance.gotoRecord(this.getAttribute('goto'));return false;};
+        a.innerHTML="("+(i/this.rpp+1)+")"; span.appendChild(a);
+      }
+      page.appendChild(span);
+    }
+  }    
+}
+
+ListBoxObject.prototype.print=function(){
+  var params="mdl="+this.mdl+"&RPP="+this.total+"&RECORD_START=0";
+  for(var i=0;i<this.passIn.length; i++){
+    params=params+"&"+this.passIn[i][0]+"="+escape(this.passIn[i][1]);
+  }
+  var PRINTER_FRIENDLY= window.open('loadin.iml?'+params,'printer_friendly','scrollbars=1,toolbar=1,location=0,directories=0,status=0,menubar=1,width=550,resizable=1');
+  PRINTER_FRIENDLY.focus();
+}
+
+ListBoxObject.prototype.all=function(){
+  this.start=0;
+  this.rpp=this.total;
+  this.load();
+}
+ListBoxObject.prototype.viewSome=function(){
+  this.start=0;
+  this.rpp=this.original_rpp;
+  this.load();
+}
+ListBoxObject.prototype.first=function(){
+  if(this.start!=0){
+    this.start=0;
+    this.load();
+  }
+}
+ListBoxObject.prototype.last=function(){
+  var next_start=this.start;
+  while(next_start<this.total-this.rpp) next_start+=this.rpp;
+  if(next_start!=this.start){
+    this.start=next_start;
+    this.load();
+  }
+}
+ListBoxObject.prototype.prev=function(){
+  var next_start=this.start-this.rpp;
+  if(next_start<0)next_start=0;
+  if(next_start!=this.start){
+    this.start=next_start;
+    this.load();
+  }
+}
+ListBoxObject.prototype.next=function(){
+  var next_start=this.start+this.rpp;
+  if(next_start!=this.start){
+    this.start=next_start;
+    this.load();
+  }
+}
+ListBoxObject.prototype.gotoRecord=function(i){
+  this.start=i;
+  this.load();
+}

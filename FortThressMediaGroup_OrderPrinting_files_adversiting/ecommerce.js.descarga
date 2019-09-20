@@ -1,0 +1,131 @@
+function OrderObject(container){
+  this.action=false;
+  this.orderID=container.data('order_id');
+	this.job=new Array();
+  instance = this;
+	container.find('.cart_item').each(function(index){
+		var thisJobID = $(this).data('job_id');
+		var $thisJob = $(this);
+		instance.job[thisJobID] = $thisJob;
+		
+	});
+	$('a.shopping-cart-link[data-job_count]').each(function() {
+		$(this).attr('data-order_id',container.data('order_id'));
+		$(this).attr('data-job_count',container.find('.cart_item').length);
+	});
+}
+
+	/*********** Address Page Actions ***********/
+
+	$('#addresses_form').find(':input').live('keypress', function(e){
+		if( $(this).prop('name').indexOf('SHIPPING_') > -1 ) {
+			$('#SHIPPING_ADDR_UPDATE').val(1);
+			$('#shipping_same_as_billing').prop('checked', false);
+			$('#SHIPPING_ADDR_Address_ID').val('');
+		} else {
+			$('#BILLING_ADDR_UPDATE').val(1);
+		}
+	});
+	$('a[data-role=clear_billing_form]').bind('click', function(e){
+		e.preventDefault();
+		$('section.billing.address .address_form input[name!=BILLING_FIELDS]').val('');
+	});
+	$('a[data-role=clear_shipping_form]').bind('click', function(e){
+		e.preventDefault();
+		$('section.shipping.address .address_form input[name!=SHIPPING_FIELDS]').val('');
+		$('#shipping_same_as_billing').prop('checked', false);
+	});
+	
+	$('input[data-role=same_as_billing]').bind('click', function(e){
+		$('.can_pull_from_billing')
+			.each(function(index){
+				thisID = $(this).attr('id');
+				billingID = thisID.replace('SHIPPING_', 'BILLING_');
+				if ( $(this).prop('type') == 'checkbox' ) {
+					if ( $('#'+billingID).val() == 1 || $('#'+billingID).prop('checked') == true ) { $(this).prop('checked', true) }
+					else { $(this).prop('checked', false ) }
+				} else {
+					$(this).val($('#'+billingID).val());
+				}
+			});
+	});
+
+	$(document).on('click', '.use_address', function(e){
+		e.preventDefault();
+		var section = $(this).closest('section.address.saved');
+		var context = section.data('context');
+		var inputFields = section.find('input');
+		inputFields.each(function(index){
+						if ( $('#'+context+'_'+$(this).prop('name')).prop('type') == 'checkbox' ) {
+							if ( $(this).val() == 1 || $(this).prop('checked') == true ) { $('#'+context+'_'+$(this).prop('name')).prop('checked', true) }
+							else { $('#'+context+'_'+$(this).prop('name')).prop('checked', false ) }
+						} else {
+							$('#'+context+'_'+$(this).prop('name')).val($(this).val());
+						}
+						$('input[data-role=same_as_billing]').prop('checked', false);
+		});
+		$('.close-address_drawer').click();
+	});
+	
+	$('#clear-shipping_class').bind('click', function(e){
+		e.preventDefault();
+		$('input[id|=ship_class]').attr('checked',false);
+	});
+
+
+	/*********** Purchase Order Option ***********/
+		$(document).on('click','#submit_cart input[name=ORDER_Payment_Type]',function() {
+			if($(this).is('.po_option')) {
+				$('#ORDER_PO').slideDown(function() { $(this).find('input').focus().prop('required','required'); });
+			} else {
+				$('#ORDER_PO').slideUp(function() { $(this).find('input').val('').removeClass('msg-required').prop('required',''); });
+			}
+			
+		});
+		
+	/*********** Fade Shipping Address ************/
+	 
+	 var addressFields=[];
+	 $(document).on('click','input[name=ORDER_Shipping_Class]',function() {
+		if($(this).is('[require_address=1]')) {
+			var i=0;
+			$('section.shipping.address').find('div.coverup').remove();
+			$('section.shipping.address').find(':input').each(function() {
+				$(this).removeAttr('disabled');
+				if(addressFields[i]) $(this).attr('required','required');
+				i++;
+			});
+			addressFields=[];
+		} else if($('section.shipping.address').find('div.coverup').length==0) {
+			$('section.shipping.address').prepend($('<div class="coverup"/>'));
+			var i=0;
+			addressFields=[];
+			$('section.shipping.address').find(':input').each(function() {
+				$(this).attr('disabled','disabled');
+				addressFields[i]=$(this).is('[required]');
+				$(this).removeAttr('required');
+				i++;
+			});
+		}
+	 });
+	 $(document).on('submit','form#addresses_form',function() {
+			if($(this).find('section.shipping.address').length==1&&$(this).find(':input:disabled').length==0) {
+				$(this).find('section.shipping.address').find('input[type=text]').eq(0).trigger('change');
+			}
+	 });
+	 $(document).ready(function() {
+		$('input[name=ORDER_Shipping_Class]:checked').trigger('click');
+	 });
+
+	/*********** Printer Friendly Link ***********/
+	
+	$('a.print_button').unbind('click');
+	$('a.print_button').live('click', function(e){
+		url = $(this).prop('href');
+		if($('input[name=ORDER_Shipping_Class]:checked').size()>0){
+			url=url+"&SHIP_Class_ID="+$('input[name=ORDER_Shipping_Class]:checked').val();
+		}
+		var pfwin=window.open(url,"Image","height=550,width=900,resizable=1,scrollbars=1,status=no,toolbar=yes,location=no,menubar=yes");
+		pfwin.focus();
+		return false;
+	});

@@ -1,0 +1,326 @@
+
+/*  Ajax tools v1.0
+Base Functions:
+AjaxObject()     use:  var a=new AjaxObject(); returns a new ajax object with the following prototype:
+     definable events:
+      AjaxObject.complete(sc,st,rt,rxml)   function called when the AjaxObject state changes to "complete"  - use this to define a function which will parse the xml results
+      AjaxObject.loading()     function called when the AjaxObject state changes to "Loading"  
+      AjaxObject.loaded()     function called when the AjaxObject state changes to "Loaded"
+      AjaxObject.interactive()    function called when the AjaxObject state changes to "interactive"
+    methods:
+      AjaxObject.abort()   stop the current request
+      AjaxObject.call(url)   asynchronously request url (using GET)
+      AjaxObject.form(url,form_id)  asynchronously request url (using POST) with name/value pairs form the form identified by form_id
+
+
+Shortcut Function:
+ajaxCallFunction(url,func)  creates a new AjaxObject (garbage collecting), sets the complete attribute to func and asynchronously requests url   
+ajaxCall(url,target) creates a new AjaxObject (garbage collecting), asynchronously requests url and places the results into the document element idendtified by target.
+     if the result is a valid xml document with one or more  <ajax_script> elements - the javascript within these elements will be executed (target will not be altered)
+ajaxForm(form,target,url)  same as ajaxCall except posting information to the request url with name/value pairs from 'form'.  If url is not defined - the action of the form will be used
+ajaxFormFunction(form,func,url)  same as ajaxCallFunction except posting information to the request url with name/value pairs from 'form'.  If url is not defined - the action of the form will be used
+
+Other Tools:
+el(id)  returns the document element with the given id
+getTagValue(node,tag)  return the first child value of the first tag (identified by 'tag') within the document element node ('node')
+
+*/
+var ajaxDebug=false;
+
+function AjaxObjectGen(){
+  if(window.XMLHttpRequest){
+    return new XMLHttpRequest();
+  }else if(window.ActiveXObject){
+    var msxmls=new Array( 'Msxml2.XMLHTTP.5.0', 'Msxml2.XMLHTTP.4.0',  'Msxml2.XMLHTTP.3.0', 'Msxml2.XMLHTTP', 'Microsoft.XMLHTTP');
+    for (var i=0; i<msxmls.length; i++){
+      try{
+        return new ActiveXObject(msxmls[i]);
+      }catch(e){
+      }
+    }
+  }
+  throw new Error("Could not instantiate XMLHttpRequest");
+}  
+
+function AjaxObject(){
+  this._xmlhttp=new AjaxObjectGen();
+}
+
+AjaxObject.prototype.abort=function(){ 
+  if(this._xmlhttp.readyState!=4) this._xmlhttp.abort();
+}
+
+AjaxObject.prototype.call=function(url){
+  if(ajaxDebug)alert("AjaxObject_call: "+url);
+  var instance=this;
+  this._xmlhttp.open('GET', url, true);
+  this._xmlhttp.onreadystatechange=function(){
+    if(ajaxDebug)alert("AjaxObject_call readyState: "+instance._xmlhttp.readyState);
+    switch(instance._xmlhttp.readyState){
+      case 1:
+        instance.loading();
+        break;
+      case 2:
+        instance.loaded();
+        break;
+      case 3:
+        instance.interactive();
+        break;
+      case 4:
+        TARGET=instance._target;
+        instance.complete(instance._xmlhttp.status, instance._xmlhttp.statusText, instance._xmlhttp.responseText, instance._xmlhttp.responseXML); 
+        instance._done=1;    
+        break;
+    }
+  }
+  this._xmlhttp.send(null);
+    if(ajaxDebug)alert("AjaxObject_call readyState: "+this._xmlhttp.readyState);
+}
+
+AjaxObject.prototype.form=function(url,parameters){
+  var instance=this;
+  this._xmlhttp.open('POST', url, true);
+  this._xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded; charset=UTF-8"); // ISO-8859-1");
+//  this._xmlhttp.setRequestHeader("Content-length", parameters.length);
+//  this._xmlhttp.setRequestHeader("Connection", "close");
+  this._xmlhttp.onreadystatechange=function(){
+    switch(instance._xmlhttp.readyState){
+      case 1:
+        instance.loading();
+        break;
+      case 2:
+        instance.loaded();
+        break;
+      case 3:
+        instance.interactive();
+        break;
+      case 4:
+        TARGET=instance._target;
+        instance.complete(instance._xmlhttp.status, instance._xmlhttp.statusText, instance._xmlhttp.responseText, instance._xmlhttp.responseXML); 
+        instance._done=1;    
+        break;
+    }
+  }
+  this._xmlhttp.send(parameters);
+}
+
+
+AjaxObject.prototype.loading=function(){ }
+AjaxObject.prototype.loaded=function(){ }
+AjaxObject.prototype.interactive=function(){ }
+AjaxObject.prototype.complete=function(status,statusText,repsonseText,responseHTML){ }
+
+
+/****************************** AjaxFormContent *************************/
+function AjaxFormContent(){
+  this.params="";  
+}
+var hexchars = "0123456789ABCDEFabcdef";
+function gethex(decimal) {
+  return "%" + hexchars.charAt(decimal >> 4) + hexchars.charAt(decimal & 0xF);
+}
+
+function encodeUTF8(string){
+        string=new String(string);
+        string = string.replace(/\r\n/g,"\n");
+        var utftext = "";
+
+        for (var n = 0; n < string.length; n++) {
+
+            var c = string.charCodeAt(n);
+
+            if(string.charAt(n)=="+") utftext += "%2b";
+            else if (c < 128) utftext += escape(string.charAt(n));
+            else utftext += "%26%23"+c+"%3b";
+
+        }
+
+        return utftext;
+}
+var cp1251=[0x82,  0x201A,0x84,  0x201E,0x85,  0x2026, 0x86 , 0x2020,0x87,  0x2021,0x88 , 0x20AC,0x91 , 0x2018,0x92,  0x2019, 0x93,  0x201C,0x94,  0x201D, 0x95,  0x2022, 0x96,  0x2013, 0x97,  0x2014, 0x98,  0x0020, 0x99,  0x2122, 0xE9, 0xE9];
+function encodeCl1251(str){
+  var out="";
+  str=new String(str);
+  for(i=0; i<str.length; i++){
+    if(str.charCodeAt(i)<=127) out=out+str.charAt(i);
+    else{
+      for(j=1; j<cp1251.length; j+=2){
+        if(str.charCodeAt(i)==cp1251[j]){
+          out=out+String.fromCharCode(cp1251[j-1]);
+        }
+      }
+    }
+  }
+  str=escape(out);
+  out="";
+  for(i=0; i<str.length; i++){
+    if(str.charAt(i)=="+") out=out+"%2B";
+    else out=out+str.charAt(i);
+  }
+  return out;
+}
+AjaxFormContent.prototype.addContent=function(element){ 
+  if(element){
+    var name=""; var val="";
+    if(element.nodeName=='INPUT'){
+      if(element.type=="checkbox"||element.type=="radio"){
+        if(element.checked) name=element.name; val=element.value;
+      }else  name=element.name; val=element.value;
+    }
+    if(element.nodeName=='SELECT'){
+      name=element.name; 
+      if(element.selectedIndex>=0 && (typeof element.options[element.selectedIndex] !== 'undefined'))
+        val=element.options[element.selectedIndex].value;    
+    }
+    if(element.nodeName=='TEXTAREA'){
+       name=element.name; val=element.value;
+    }
+    if(name!=""){
+      if(this.params=="") this.params=name+"="+encodeUTF8(val);
+      else this.params=this.params+"&"+name+"="+encodeUTF8(val);
+    }
+  }
+}
+AjaxFormContent.prototype.addNameValue=function(name,val){ 
+  if(this.params=="") this.params=name+"="+encodeUTF8(val);
+  else this.params=this.params+"&"+name+"="+encodeUTF8(val);
+}
+AjaxFormContent.prototype.getContent=function(){
+  return this.params;
+}
+AjaxFormContent.prototype.fromForm=function(form){  
+  if(typeof form=="string") form=el(form);
+  var x=form.getElementsByTagName("*");
+  for(var i=0; i<x.length; i++){  
+    this.addContent(x[i]);
+  } 
+}
+AjaxFormContent.prototype.fromNode=function(form){  
+  if(typeof form=="string") form=el(form);
+  var x=form.getElementsByTagName("*");
+  for(var i=0; i<x.length; i++){  
+    this.addContent(x[i]);
+  } 
+}
+
+/*************************  General Functions *************************/
+
+function el(id){ return document.getElementById(id);}
+function ce(type){ return document.createElement(type);}
+
+function getTagValue(node,tag){
+  var result="";
+  if(node){
+    if(node.getElementsByTagName(tag)){
+      var first_tag=node.getElementsByTagName(tag)[0];    
+      if(first_tag){
+        var x=first_tag.childNodes;  
+        for(var i=0; i<x.length; i++) result=result+x[i].nodeValue;     
+      }
+    }
+  }
+  return result;
+}
+
+
+function ajaxLoadXML(sc,st,rt,rxml){
+  if(ajaxDebug)alert("ajaxLoadXML: "+rt);
+  el(TARGET).onclick=null;
+//  el(TARGET).className="";  
+  var x=(typeof rxml!="undefined"&&rxml!=null) ? rxml.getElementsByTagName('ajax_script') : [];
+  if(x.length>0){
+    var XML=rxml;
+    for(var i=0; i<x.length; i++){  
+      var y=x[i].childNodes;
+      for(var j=0; j<y.length; j++)   eval(y[j].nodeValue);
+    }
+  }else{
+    el(TARGET).innerHTML=rt;
+  }
+}
+
+// Global Functions 
+var ajaxObjects = new Array();
+
+function ajaxCallFunction(url,func){
+  var j=ajaxObjects.length;
+  for(var i=0; i<ajaxObjects.length; i++){
+    if(ajaxObjects[i]._done==1){ j=i; break;}
+  }
+  ajaxObjects[j]= new AjaxObject();
+  ajaxObjects[j]._target="";
+  ajaxObjects[j].complete=func;
+  ajaxObjects[j].call(url);  
+  return ajaxObjects[j];  
+}
+
+function ajaxCall(url,target){
+  el(target).onclick=Function("return false");
+//  el(target).className="loading";
+  var j=ajaxObjects.length;
+  for(var i=0; i<ajaxObjects.length; i++){
+    if(ajaxObjects[i]._done==1){ j=i; break;}
+  }
+  ajaxObjects[j]= new AjaxObject();
+  ajaxObjects[j]._target=target;
+  ajaxObjects[j].complete=ajaxLoadXML;
+  ajaxObjects[j].call(url);  
+  return ajaxObjects[j];
+}
+
+function ajaxForm(form,target,url){
+  el(target).onclick=Function(" return false");
+//  el(target).className="loading";  
+  if(url==null) url=el(form).action;
+  var j=ajaxObjects.length;  
+  for(var i=0; i<ajaxObjects.length; i++){
+    if(ajaxObjects[i]._done==1){ j=i; break;}
+  }
+  ajaxObjects[j]= new AjaxObject();
+  ajaxObjects[j]._target=target;
+  ajaxObjects[j].complete=ajaxLoadXML;
+  var params=new AjaxFormContent();
+  params.fromForm(form);
+  ajaxObjects[j].form(url,params.getContent());  
+  return false;
+}
+
+function ajaxFormFunction(form,func,url){
+  if(url==null) url=el(form).action;
+  var j=ajaxObjects.length;  
+  for(var i=0; i<ajaxObjects.length; i++){
+    if(ajaxObjects[i]._done==1){ j=i; break;}
+  }
+  ajaxObjects[j]= new AjaxObject();
+  ajaxObjects[j].complete=func;
+  var params=new AjaxFormContent();
+  params.fromForm(form);
+  ajaxObjects[j].form(url,params.getContent());  
+  return false;  
+}
+
+function ajaxPost(params,target,url){
+  el(target).onclick=Function(" return false");
+//  el(target).className="loading";  
+  var j=ajaxObjects.length;  
+  for(var i=0; i<ajaxObjects.length; i++){
+    if(ajaxObjects[i]._done==1){ j=i; break;}
+  }
+  ajaxObjects[j]= new AjaxObject();
+  ajaxObjects[j]._target=target;
+  ajaxObjects[j].complete=ajaxLoadXML;
+  ajaxObjects[j].form(url,params.getContent());  
+  return false;
+}
+
+function ajaxPostFunction(params,func,url){
+  if(url==null) url=el(form).action;
+  var j=ajaxObjects.length;  
+  for(var i=0; i<ajaxObjects.length; i++){
+    if(ajaxObjects[i]._done==1){ j=i; break;}
+  }
+  ajaxObjects[j]= new AjaxObject();
+  ajaxObjects[j].complete=func;
+  ajaxObjects[j].form(url,params.getContent());  
+  return false;  
+}

@@ -1,0 +1,276 @@
+/* #product-tabs {
+	width: 560px;
+} */
+#product-tabs .product {
+	border: 1px solid #E7EAE9;
+	border-radius: 8px;
+	-moz-border-radius: 8px;
+	background-image: -webkit-linear-gradient(#F5F5F5, white);
+	background-image: -moz-linear-gradient(#F5F5F5, white);
+	background-image: -o-linear-gradient(white 50%, #F1F1F1);
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#FFFFFFFF, endColorstr=#FFF1F1F1);
+	-ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorstr=#FFFFFFFF, endColorstr=#FFF1F1F1)";
+	margin-bottom: 15px;
+	/* width: 558px; */
+	position: relative;
+}
+#product-tabs .doclib.product {
+	overflow: auto;
+}
+#product-tabs .page-break.product {
+	page-break-before: always;
+}
+#product-tabs .product img, #product-tabs .product .thumbnail {
+	float: left;
+	max-width: 170px;
+	max-height: 170px;
+}
+#product-tabs .product .thumbnail {
+	max-height: 85px;
+	max-width: 85px;
+}
+#product-tabs .product .user.thumbnail {
+	margin: 5px;
+}
+#product-tabs .product div.product_info {
+	font-family: Arial,Helvetica,sans-serif;
+	padding: 10px 8px;
+	display: block;
+	/*margin: 0px 0 0 110px;*/
+	margin: 0 0 0 85px;
+	overflow: auto;
+	width: 496px;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+}
+#product-tabs .product div.user.product_info {
+	/*margin: 0 0 0 110px;*/
+}
+#product-tabs .product a.read-toggle.plus {
+	margin: 9px 8px 0px 0px;
+	float: right;
+}
+#product-tabs .product a.read-toggle.plus .plus {
+	display: block;
+}
+#product-tabs .product a.read-toggle.plus .minus {
+	display: none;
+}
+#product-tabs .product a.read-toggle.plus.minus .minus {
+	display: block;
+}
+#product-tabs .product a.read-toggle.plus.minus .plus {
+	display: none;
+}
+#product-tabs span.header {
+	color: #333333;
+	font-weight: bold;
+	font-size: 14px;
+	line-height: 18px;
+}
+#product-tabs span.header a {
+	color: #333333;
+    text-decoration: none;
+}
+#product-tabs div.product_info ul {
+	font-size: 12px;
+	list-style: disc outside;
+}
+#product-tabs div.product_info ul li {
+	list-style: disc outside;
+	background: none transparent;
+	display: list-item;
+}
+#product-tabs div.desc {
+	height: 28px;
+	overflow: hidden;
+}
+#product-tabs div.desc, #product-tabs div.desc p, #product-tabs div.description, #product-tabs div.description p, #product-tabs div.control-line {
+	font-size: 12px;
+	line-height: 14px;
+}
+#product-tabs div.desc p {
+	padding-bottom: 12px;
+}
+#product_category_table div.desc, #docLibItem #product-tabs div.desc {
+	height: auto;
+    min-height: 35px;
+	line-height: 19px;
+}
+#product-tabs .no_image-sml {
+	display: inline-block;
+	width: 67px;
+	height: 85px;
+	background-color: #DBDDE0;
+}
+#product-tabs .product div.description {
+	margin: 14px 0px;
+	display: none;
+}
+#product-tabs .product div.description_image {
+	/* width: 130px;
+	height: 130px; */
+	float: left;
+	margin: 0px 20px 20px 0px;
+	overflow: visible;
+}
+#product-tabs .product div.description_image img {
+	/* position: relative;
+	top: -15px;
+	left: -20px; */
+}
+#product-tabs .product div.user_description_image {
+	padding: 0;
+	float: left;
+	/* width: auto; */
+	height: auto;
+}
+#product-tabs .product div.user_description_image img {
+	position: static;
+}
+#product-tabs .product div.control-line {
+	/* clear: left; */		/* Removed to keep collapsed view from being too tall. */
+	line-height: 20px;
+}
+#product-tabs .product div.audio_wrap {
+	float: right;
+	height: 1px;
+	position: relative;
+	top: -27px;
+	margin-right: 4px;
+}
+ul#product-tabs-ul {
+	width: 120px;
+	margin: 10px auto !important;
+	padding: 0px;
+}
+ul#product-tabs-ul li {
+	float: left;
+	list-style-type: none;
+	background: none transparent !important;
+	margin: 0px !important;
+	padding: 0px !important;
+}
+ul#product-tabs-ul li a {
+	padding: 2px 5px;
+	margin: 2px;
+	background-color: #ebebeb;
+}
+ul#product-tabs-ul li.ui-tabs-selected a {
+	background-color: transparent;
+	color: black;
+	font-weight: bold;
+}
+
+.product .design-online {
+    position: absolute;
+    right: 0;
+    z-index: 90;
+}
+.product .design-online img {
+    border-radius: 0 9px 9px 0;
+}
+section.design-edit-info {
+	padding: 25px;
+}
+section.design-edit-info header {
+	margin: 0 35px;
+}
+section.design-edit-info header > p {
+	width: 548px;
+	font-size: 16px;
+	line-height: 24px;
+	font-family: Arial, Helvetica, sans-serif;
+	float: right;
+	padding: 45px 0 0;
+	margin: 0;
+}
+section.design-edit-info > p {
+	font-size: 15px;
+	padding: 35px;
+	font-style: italic;
+}
+section.design-edit-info > ul {
+	display: block;
+	list-style: none outside none !important;
+	margin: 0 !important;
+	padding: 20px 0 0;
+	text-align: center;
+	clear: both;
+}
+section.design-edit-info > ul > li {
+	width: 33%;
+	padding: 0 0 65px;
+	vertical-align: top;
+	float: left;
+	background: transparent none;
+	list-style: none outside none !important;
+}
+section.design-edit-info > ul > li > a {
+	width: 225px;
+	height: 225px;
+	display: inline-block;
+	background: #f4f4f4;
+	text-decoration: none;
+	overflow: hidden;
+}
+section.design-edit-info > ul > li > a > h3 {
+	font-size: 18px;
+	font-family: Arial,Helvetica,sans-serif;
+	margin: 0;
+	padding: 15px 15px 5px;
+}
+
+/* docLib List Categories */
+.category_box {
+	float: left;
+	width: 31.3333%;
+	border: 1px solid #EFEFEF;
+	border-radius: 8px;
+	background-image: -webkit-linear-gradient(#F5F5F5, white);
+	background-image: -moz-linear-gradient(#F5F5F5, white);
+	background-image: -o-linear-gradient(white 50%, #F1F1F1);
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#FFFFFFFF, endColorstr=#FFF1F1F1);
+	-ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorstr=#FFFFFFFF, endColorstr=#FFF1F1F1)";
+	margin: 0 5px;
+	margin-bottom: 15px;
+	height: 226px;
+}
+
+.category_box:before {
+	/*content: '';
+	 display: inline-block; */
+	height: 100%;
+	vertical-align: middle;
+	margin-right: -0.25em;
+}
+
+.category_box img {
+	max-height: 170px;
+	max-width: 170px;
+	margin: 0 auto !important;
+	display: block;
+	padding: 10px;
+}
+
+.category_box p {
+	text-align: center;
+	line-height: 1.5em;
+	padding: 0 10px;
+}
+
+.category_box a {
+	display: inline-block;
+	vertical-align: middle;
+	width: 226px;
+}
+
+.category_box .no_image {
+	width: 170px;
+	height: 170px;
+	background: url("../images/NotAvl_lrg.png") no-repeat top center;
+	display: block;
+	margin: 0 auto;
+	padding: 10px;
+}

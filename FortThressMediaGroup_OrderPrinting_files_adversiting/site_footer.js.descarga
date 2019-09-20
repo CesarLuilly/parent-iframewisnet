@@ -1,0 +1,99 @@
+	$(document).ready(function(){
+		$('#footer-tabs ul li a').unbind('click');
+		$('#footer-tabs ul li a').live('click',function(e){
+			e.preventDefault();
+			var $refTab = $(this);
+			$('.footer-tab:visible', $refTab.closest('section') ).slideUp(function(){
+				$($refTab.attr('href')).slideDown("fast", function(){
+					if ($('.site_footer_ecommerce-box:visible').length < 1 && $refTab.attr('href') == "#footer-ecommerce") {
+						firstEcommerce = $('a.site_footer_ecommerce-link.start_here.numbered');
+						if(firstEcommerce.length == 1) { firstEcommerce.click(); }
+						else { $('a.site_footer_ecommerce-link.numbered').eq(0).click(); }
+					}				
+					if ($('.resources-box:visible').length < 1 && $refTab.attr('href') == "#footer-resources") {
+						firstResource = $('a.resources-link.start_here.numbered');
+						if(firstResource.length == 1) { firstResource.click(); }
+						else { $('a.resources-link.numbered').eq(0).click(); }
+					}
+					
+				});
+			});
+			$('#footer-tabs ul li a', $refTab.closest('section') ).removeClass('active');
+			$(this).addClass('active');
+		});
+		$('#footer-tabs ul li a.default').click();
+		
+		$('a.site_footer_ecommerce-link').unbind('click');
+		$('a.site_footer_ecommerce-link').live('click',function(e){
+			e.preventDefault();
+			$ecomLink = $(this);
+			if (!$ecomLink.hasClass('current')) {
+				if ($('.site_footer_ecommerce-box:visible').length > 0) {
+					$('.site_footer_ecommerce-box:visible').fadeOut(function(){
+						$($ecomLink.attr('href')).fadeIn("fast");
+					});
+				} else {
+					$($ecomLink.attr('href')).fadeIn("fast");
+				}
+				$('a.site_footer_ecommerce-link.current').removeClass('current');
+				$('a.'+$(this).attr('href').replace('#','')).addClass('current');
+			}
+		});
+		$('a.resources-link').unbind('click');
+		$('a.resources-link').live('click',function(e){
+			e.preventDefault();
+			$ecomLink = $(this);
+			if (!$ecomLink.hasClass('current')) {
+				if ($('.resources-box:visible').length > 0) {
+					$('.resources-box:visible').fadeOut(function(){
+						$($ecomLink.attr('href')).fadeIn("fast");
+					});
+				} else {
+					$($ecomLink.attr('href')).fadeIn("fast");
+				}
+				$('a.resources-link.current').removeClass('current');
+				$('a.'+$(this).attr('href').replace('#','')).addClass('current');
+			}
+		});
+        $('.periodical-thumb').live('click', function(e){
+            e.preventDefault();
+            $('#periodical-dest .periodical').hide();
+            $('#periodical-dest').load('jq_load.iml', 
+                { 
+                    mdl:PREFS.OPC_Version_Path+'loadin/'+$(this).attr('p_type'),
+                    DEBUG:1,
+					SHARE_URL:$(this).attr('href'),
+					SHARE_TITLE:document.title,
+                    P_ID:$(this).attr('p_id')
+               },
+               function(){
+                 $('#periodical-dest .periodical').show();
+                 $(window).scrollTop($('.periodical').offset().top);
+            });
+	    });
+        $('.periodical-thumb.preload').click();        
+        // open p@w in a new window without a Query String (needed for anchor tags within p@w page relative to base path)
+        $('.periodical.printeratwork a.learnmore').live('click', function(e){
+          e.preventDefault();
+          $('<form method="post"></form>').attr('target',$(this).attr('target'))
+          .attr('action',$(this).attr('href').split('?')[0])
+          .append($('<input name="Issue_ID" type="hidden" />').val($(this).attr('p_id')))
+          .appendTo($('body')).submit();
+        });
+	});
+        $(document).ready(function(){
+					$('#more_whats_new').unbind('click').live('click', function(e){
+            e.preventDefault();
+						var whats_new_start = $('#more_whats_new').attr('whats_new_start');
+						var this_printshop_id = $('#more_whats_new').attr('p_id');
+						$('#more_whats_new').parent().replaceWith('<section id="list-'+whats_new_start+'"></section>');
+            $('#whats_new_archive_list').append($('#list-'+whats_new_start));
+						$('#list-'+whats_new_start).load('jq_load.iml', 
+                {
+                    mdl:PREFS.OPC_Version_Path+'loadin/whats_new_list.mdl',
+                    DEBUG:1,
+                    P_ID:$(this).attr('p_id'),
+										whats_new_start: whats_new_start
+               });
+					});
+				});

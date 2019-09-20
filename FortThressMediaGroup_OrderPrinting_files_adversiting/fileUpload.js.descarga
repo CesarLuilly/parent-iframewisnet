@@ -1,0 +1,207 @@
+var FileUploadUtilityList=new Array();
+var FileUploadUtilityNextAction=null;
+var FileUploadUtilityCancelAction=null;
+
+function FileUploadUtility(posnode,formnode,resultnode,action,mdl,immediate,allowchange,requiredgroup,onchange_func){
+  this.waitingToSend=false;
+  this.sending=false;
+  this.positionNode=posnode;
+  this.resultNode=resultnode;
+  this.index=FileUploadUtilityList.length;
+  this.immediateProgress=immediate;
+  this.requiredGroup=requiredgroup;
+  this.onchangeFunction=onchange_func;
+  FileUploadUtilityList[this.index]=this;
+  var instance=this;
+  var params= new AjaxFormContent(); 
+  if(!action)action="loadin.iml"
+  params.addNameValue("mdl","fileUpload/resource.aj");
+  params.addNameValue("FUU_width",this.positionNode.offsetWidth);
+  params.addNameValue("FUU_height",this.positionNode.offsetHeight);
+  params.addNameValue("FUU_action",action);
+  if(allowchange)params.addNameValue("FUU_allowChange","1");
+  if(mdl)params.addNameValue("FUU_mdl",mdl);
+  params.addNameValue("FUU_index",this.index);
+  this.progressIndex=-1;
+  ajaxPostFunction(params,function(sc,st,rt,rxml){  
+    instance.res=new HTMLParse(rt);
+    if(formnode){
+      var formpart=new HTMLParse(formnode,true);
+ 	    instance.res.form[0].form[0].subform[0].appendObject(formpart);
+	  }
+    instance.setup();
+  },"ajax.iml");  
+  
+}
+
+FileUploadUtility.prototype.setup=function(){
+  var instance=this;
+  if(this.requiredGroup&&this.requiredGroup!=""&&this.resultNode.value==""){
+    this.requiredSet=true;
+    add_required_field(this.requiredGroup,this.res.form[0].form[0].file[0].node, 'Please fill in all required fields.', 1, '');
+  }
+  this.res.form[0].form[0].file[0].node.onchange=function(evt){instance.sendFile(evt);};
+  this.res.formview[0].waiting[0].button[0].node.onclick=function(evt){instance.cancel();return false;};
+  this.res.formview[0].uploading[0].button[0].node.onclick=function(evt){instance.cancel();return false;};
+  if(this.res.formview[0].done[0].button)this.res.formview[0].done[0].button[0].node.onclick=function(evt){instance.cancel();return false;};
+  this.res.sendview[0].waiting[0].button[0].node.onclick=function(evt){instance.cancel();return false;};
+  this.res.sendview[0].uploading[0].button[0].node.onclick=function(evt){instance.cancel();return false;};
+  if(this.res.sendview[0].done[0].button)this.res.sendview[0].done[0].button[0].node.onclick=function(evt){instance.cancel();return false;};
+  
+  this.positionNode.appendChild(this.res.formview[0].node);   
+  this.positionNode.appendChild(this.res.sendview[0].node);   
+  this.positionNode.appendChild(this.res.form[0].node);   
+  if(this.immediateProgress){
+    this.res.formview[0].node.style["display"]="none";
+    this.res.sendview[0].node.style["display"]="";
+  }else{
+    this.res.formview[0].node.style["display"]="";
+    this.res.sendview[0].node.style["display"]="none";
+  }
+  if(this.resultNode.value==""){
+    this.setStatus('form');
+  }else{
+    this.res.form[0].form[0].filename[0].node.value=this.resultNode.value;
+    this.setStatus('done');
+  }
+
+  add_file_upload_field('IMAGE_UPLOAD_'+this.index,this.res.form[0].form[0].filename[0].node,this.res.form[0].form[0].file[0].node);
+  add_required_field('IMAGE_UPLOAD_'+this.index,this.res.form[0].form[0].file[0].node, 'Please select a file.', 1, '');
+}
+
+FileUploadUtility.prototype.sendFile=function(evt){
+  if(!check_required_fields('IMAGE_UPLOAD_'+this.index)) return;  
+  $('input[type=file].normal-input').removeClass('normal-input');
+  if(check_file_upload_fields('IMAGE_UPLOAD_'+this.index)){    
+    if(this.onchangeFunction) this.onchangeFunction();
+    this.triggerEvt=evt;
+
+    if(this.waitingToSend){this.setStatus('waiting'); return;};
+    if(this.sending){this.setStatus('uploading'); return;};
+    this.waitingToSend=true;
+    for(var i=0; i<FileUploadUtilityList.length; i++){
+      if(i!=this.index&&FileUploadUtilityList[i].sending){this.setStatus('waiting'); return;}
+    }
+    this.sending=true; this.waitingToSend=false;
+    document.body.appendChild(this.res.form[0].node);    
+    this.setStatus('uploading');
+    var pb=new ProgressBar(this.res.sendview[0].uploading[0].progressbar[0].node,this.res.sendview[0].uploading[0].progressstatus[0].node, true);
+    this.progressIndex=pb.index;
+    this.res.form[0].form[0].node.submit();    
+  }
+}
+
+FileUploadUtility.prototype.done=function(filename){
+  if(this.progressIndex>-1) ProgressBarList[this.progressIndex].abort();
+  this.res.sendview[0].uploading[0].progressstatus[0].node.innerHTML="100%";
+  this.res.sendview[0].uploading[0].progressbar[0].node.style.width="100%";
+  
+  this.setStatus('done');
+  this.resultNode.value=filename;  
+  if(this.resultNode.onchange)  this.resultNode.onchange(this.triggerEvt);
+  else Evt.dispatchEvent(this.resultNode,'change');
+	$(this.resultNode).change();
+  this.sending=false; this.waitingToSend=false;
+  this.next();
+}
+
+FileUploadUtility.prototype.next=function(){
+  for(var i=0; i<FileUploadUtilityList.length; i++){
+    if(FileUploadUtilityList[i].waitingToSend){
+  	  FileUploadUtilityList[i].waitingToSend=false;
+      FileUploadUtilityList[i].sendFile(this.triggerEvt);
+	    return;
+    }
+  }
+  if(FileUploadUtilityNextAction) FileUploadUtilityNextAction();
+}
+
+FileUploadUtility.prototype.cancel=function(){
+  if(this.progressIndex>-1) ProgressBarList[this.progressIndex].abort();
+  this.res.form[0].form[0].node.reset();  
+  this.res.form[0].form[0].filename[0].node.value="";
+  this.res.form[0].dest[0].node.src="blank.html";
+  this.positionNode.appendChild(this.res.form[0].node);   
+  this.setStatus("form");
+  this.resultNode.value="";
+  if(this.requiredGroup&&this.requiredGroup!=""&&!this.requiredSet){
+    this.requiredSet=true;
+    add_required_field(this.requiredGroup,this.res.form[0].form[0].file[0].node, 'Please fill in all required fields.', 1, '');
+  }  
+  this.sending=false; this.waitingToSend=false;
+  FileUploadUtilityNextAction=null;
+  if(FileUploadUtilityCancelAction) FileUploadUtilityCancelAction();  
+  this.next();
+}
+
+FileUploadUtility.prototype.closeOut=function(){
+  if(this.res){
+    this.res.form[0].node.style["display"]="none";
+    this.res.formview[0].node.style["display"]="none";
+    this.res.sendview[0].node.style["display"]="";
+    if(this.waitingToSend){this.setStatus('waiting'); return;};
+    if(this.sending){this.setStatus('uploading'); return;};
+    document.body.appendChild(this.res.form[0].node);    
+  }
+}
+
+FileUploadUtility.prototype.reOpen=function(){
+  if(this.res){
+    if(this.immediateProgress){
+      this.res.formview[0].node.style["display"]="none";
+      this.res.sendview[0].node.style["display"]="";
+    }else{
+      this.res.formview[0].node.style["display"]="";
+      this.res.sendview[0].node.style["display"]="none";
+    }
+    this.positionNode.appendChild(this.res.form[0].node);   
+	if(this.sending||this.waitingToSend) this.res.form[0].node.style["display"]="none";
+    else this.res.form[0].node.style["display"]="";
+  }
+}
+
+
+FileUploadUtility.prototype.setStatus=function(stat){
+  var filename=this.res.form[0].form[0].filename[0].node.value;  
+  var longfilename=filename;
+  if(filename.length>33) filename=filename.slice(0,21)+"…"+filename.slice(-9);
+  this.res.formview[0].done[0].filename[0].node.innerHTML=filename;
+  this.res.formview[0].waiting[0].filename[0].node.innerHTML=filename;
+  this.res.formview[0].uploading[0].filename[0].node.innerHTML=filename;  
+  this.res.sendview[0].done[0].filename[0].node.innerHTML=filename;
+  this.res.sendview[0].waiting[0].filename[0].node.innerHTML=filename;
+  this.res.sendview[0].uploading[0].filename[0].node.innerHTML=filename;  
+//  if(stat=="done"){    
+//    this.res.formview[0].done[0].node.style["display"]=""; 
+//    this.res.sendview[0].done[0].node.style["display"]=""; 
+//  }else{    
+    this.res.formview[0].done[0].node.style["display"]="none";
+    this.res.sendview[0].done[0].node.style["display"]="none";    
+//  }
+  
+  if(stat=="waiting"){    
+  //  this.resultNode.value=longfilename;    
+    this.res.formview[0].waiting[0].node.style["display"]=""; 
+    this.res.sendview[0].waiting[0].node.style["display"]=""; 
+  }else{ 
+    this.res.formview[0].waiting[0].node.style["display"]="none";
+    this.res.sendview[0].waiting[0].node.style["display"]="none";
+  }
+  if(stat=="uploading"||stat=="done"){ 
+  //   this.resultNode.value=longfilename;    
+     this.res.formview[0].uploading[0].node.style["display"]="";
+     this.res.sendview[0].uploading[0].node.style["display"]="";
+  }else{   
+     this.res.formview[0].uploading[0].node.style["display"]="none";
+     this.res.sendview[0].uploading[0].node.style["display"]="none";
+  }
+  if(stat=="form"){   
+     this.resultNode.value="";    
+     this.res.form[0].node.style["display"]=""; 
+     this.res.sendview[0].uploading[0].progressstatus[0].node.innerHTML="0%";
+     this.res.sendview[0].uploading[0].progressbar[0].node.style.width="1px";
+	 
+  }else{        
+    this.res.form[0].node.style["display"]="none"; 
+  }
+}

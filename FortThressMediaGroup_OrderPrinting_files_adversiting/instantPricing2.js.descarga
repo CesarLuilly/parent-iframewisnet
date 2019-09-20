@@ -1,0 +1,1210 @@
+var SHOW_PRICING_EDITOR=false;
+var InstantPricingList=new Array();
+function CreateInstantPricing(reftype,refid,container,form,id,precision,multiplierQuestion){
+  var i=InstantPricingList.length;
+  InstantPricingList[i]=new InstantPricing(reftype,refid,container,form,precision,multiplierQuestion);
+  InstantPricingList[i].id=id;  
+}
+function GetInstantPricing(id){
+  for(var i=0; i<InstantPricingList.length; i++){
+    if(InstantPricingList[i].id==id)return InstantPricingList[i];
+  }
+  return null;
+}
+function InstantPricingFormEditMode(on){
+  for(var i=0; i<InstantPricingList.length; i++){
+      if(on){ 
+        InstantPricingList[i].closeQuickQuote();
+      }else{
+        InstantPricingList[i].processQuickQuote();
+      }
+  }
+}
+function InstantPricing(reftype,refid,container,form,precision,multiplierQuestion){
+  this.quoteForm=form;
+  this.pricingInfoAvailable=false;
+  this.content=container; 
+  this.editMode=false;
+  this.refType=reftype;
+  this.refID=refid;  
+  this.floating=null;
+  this.unitPricePrecision=2;
+  if(precision&&precision>0) this.unitPricePrecision=precision;
+  if(multiplierQuestion&&multiplierQuestion>0) this.multiplierQuestion=multiplierQuestion;
+//  this.selectedOptions= new Array();
+//  this.selectedCategories= new Array();
+//  this.priceFormList= new Array();
+  this.data=null;
+//  this.openedOptions = new Array();
+  this.res=null;
+  this.usedElements=new Array();
+  this.showQuote();
+  this.setupForm();  
+}
+
+
+InstantPricing.prototype.processXML=function(xml){  
+  var x, y, z, zz;
+  var i, j, k, kk;
+  var rowIndex;
+//  this.res.editor[0].pricingForm[0].refID[0].node.value=this.refID;
+//  this.res.editor[0].pricingForm[0].refType[0].node.value=this.refType;        
+  this.data=new Object();
+  this.data.minQty=getTagValue(xml,'min_qty');
+  this.DEBUG=(getTagValue(xml,'debug')=="1"?true:false);
+  this.HIDEARROW=(getTagValue(xml,'hidearrow')=="1"?true:false);
+  this.HIDEPANEL=(getTagValue(xml,'hidepanel')=="1"?true:false);
+  
+  if(getTagValue(xml,'pricingmethod')=="marginal")  this.data.marginal=true; else this.data.marginal=false;
+
+  this.data.pricing=new Array();
+  this.data.categories=new Array();
+  x=xml.getElementsByTagName('category');
+  for(i=0;i<x.length;i++){
+    this.data.categories[i]=new Object();
+    this.data.categories[i].id=x[i].getAttribute('id');
+    this.data.categories[i].cumulativeTotal=0;
+    this.data.categories[i].title=getTagValue(x[i],'title');
+    this.data.categories[i].type=getTagValue(x[i],'type'); // "header" or "sub group"
+    var sort1=parseInt(getTagValue(x[i],'sort1'));
+    var sort2=parseInt(getTagValue(x[i],'sort2'));
+    var sort3=parseInt(getTagValue(x[i],'sort3'));
+    var sort=0;
+    this.data.categories[i].question=new Array();    
+    y=x[i].getElementsByTagName('question');
+    if( y.length ) {
+      var quest1 = parseInt( y[0].getAttribute('qid1') );
+      var quest2 = parseInt( y[0].getAttribute('qid2') );
+      var quest3 = parseInt( y[0].getAttribute('qid3') );
+      if( quest1 === this.multiplierQuestion ) sort1 = "N/A";
+      else if( $(':input[data-element_id='+quest1+'][isQty]').length ) sort1 = "N/A";
+      if( isNaN( quest2 ) || quest2 === this.multiplierQuestion ) sort2 = "N/A";
+      else if( $(':input[data-element_id='+quest2+'][isQty]').length ) sort2 = "N/A";
+      if( isNaN( quest3 ) || quest3 === this.multiplierQuestion ) sort3 = "N/A";
+      else if( $(':input[data-element_id='+quest3+'][isQty]').length ) sort3 = "N/A";
+    }
+    if( ! isNaN( sort1 ) ) sort = sort1;
+    if( ! isNaN( sort2 ) ) {
+      if( isNaN( sort1 ) || sort2 < sort ) sort = sort2;
+    }
+    if( ! isNaN( sort3 ) ) {
+      if( ( isNaN( sort1 ) && isNaN( sort2 ) ) || sort3 < sort ) sort = sort3;
+    }
+    this.data.categories[i].sort=sort;
+    for(j=0;j<y.length;j++){
+      this.data.categories[i].question[j]=new Object();
+      this.data.categories[i].question[j].id1=y[j].getAttribute('qid1');
+      this.data.categories[i].question[j].id2=y[j].getAttribute('qid2');
+      this.data.categories[i].question[j].id3=y[j].getAttribute('qid3');
+			this.data.categories[i].question[j].dimen1=y[j].getAttribute('dimen1');
+			this.data.categories[i].question[j].dimen2=y[j].getAttribute('dimen2');
+			this.data.categories[i].question[j].dimen3=y[j].getAttribute('dimen3');
+      this.data.categories[i].question[j].pricing=new Array();
+      z=y[j].getElementsByTagName('pricing');
+      if(z.length>0){
+        this.pricingInfoAvailable=true;
+        this.data.categories[i].pricingInfoAvailable=true;
+      }
+      for(k=0;k<z.length;k++){        
+        this.data.categories[i].question[j].pricing[k]=new Object();
+        this.data.categories[i].question[j].pricing[k].id=z[k].getAttribute('id');
+        this.data.categories[i].question[j].pricing[k].choice1=getTagValue(z[k],'choice1');
+        this.data.categories[i].question[j].pricing[k].choice2=getTagValue(z[k],'choice2');
+        this.data.categories[i].question[j].pricing[k].choice3=getTagValue(z[k],'choice3');
+        this.data.categories[i].question[j].pricing[k].option1=getTagValue(z[k],'option1');
+        this.data.categories[i].question[j].pricing[k].option2=getTagValue(z[k],'option2');
+        this.data.categories[i].question[j].pricing[k].option3=getTagValue(z[k],'option3');
+        this.data.categories[i].question[j].pricing[k].setupCharge=Number(getTagValue(z[k],'setup_charge'));
+        this.data.categories[i].question[j].pricing[k].setupPercent=Number(getTagValue(z[k],'setup_percent'));     
+        this.data.categories[i].question[j].pricing[k].piecesMultiplier=Number(getTagValue(z[k],'pieces_multiplier'));
+        this.data.categories[i].question[j].pricing[k].piecesQuestion=Number(getTagValue(z[k],'pieces_question'));
+        this.data.categories[i].question[j].pricing[k].subPricePerItem=Number(getTagValue(z[k],'sub_price_per_item'));      
+        this.data.categories[i].question[j].pricing[k].breaks=new Array();
+        zz=z[k].getElementsByTagName('break');
+        for(kk=0;kk<zz.length;kk++){
+          this.data.categories[i].question[j].pricing[k].breaks[kk]=new Object();
+          this.data.categories[i].question[j].pricing[k].breaks[kk].qty=Number(zz[kk].getAttribute('qty'));
+          this.data.categories[i].question[j].pricing[k].breaks[kk].value=Number(zz[kk].firstChild.nodeValue);    
+        }
+      }
+    }
+		this.data.colors=new Array();
+  }
+	x=xml.getElementsByTagName('inkcolors');
+	var inkCt=0;
+	for(j=0;j<x.length;j++) {
+		var y=x[j].getElementsByTagName('question');
+		for(k=0;k<y.length;k++) {
+			var z=y[k].getElementsByTagName('color');
+			for(l=0;l<z.length;l++) {
+				this.data.colors[inkCt]=new Object();
+				this.data.colors[inkCt].id=y[k].getAttribute('qid1');
+				this.data.colors[inkCt].element=y[k].getAttribute('qid2');
+				this.data.colors[inkCt].option=getTagValue(z[l],'option');
+				this.data.colors[inkCt].custom=getTagValue(z[l],'custom');
+				this.data.colors[inkCt].setup_charge=getTagValue(z[l],'setup_charge');
+				inkCt++;
+			}
+		}
+	}
+	if(this.data.colors&&this.data.colors.length>0) {
+		this.data.categories[i]={id:"",cumulativeTotal:0,title:"Ink Colors",sort:100,type:"Header",pricingInfoAvailable:true,question:[{id1:"INKS",id2:"",id3:"",dimen1:"",dimen2:"",dimen3:"",pricing:[{id:"",choice1:"",choice2:"",choice3:"",option1:"",option2:"",option3:"",setupCharge:0,setupPercent:0,piecesMultiplier:"",piecesQuestion:"",subPricePerItem:"",breaks:[]}]}]};
+		i++;
+	}
+	if($('input[name=TEMPLATE_Price]').length==1&&$('input[name=TEMPLATE_Price]').val()!=""&&!isNaN($('input[name=TEMPLATE_Price]').val())) { // add template charge for DesignEdit
+		this.pricingInfoAvailable=true;
+		this.data.categories[i]={id:"",cumulativeTotal:0,title:"Design Template",sort:101,type:"Header",pricingInfoAvailable:true,question:[{id1:"",id2:"",id3:"",dimen1:"",dimen2:"",dimen3:"",pricing:[{id:"",choice1:"",choice2:"",choice3:"",option1:"",option2:"",option3:"",setupCharge:($('input[name=TEMPLATE_Price]').val()*1),setupPercent:0,piecesMultiplier:"",piecesQuestion:"",subPricePerItem:"",breaks:[]}]}]};
+		i++;
+	}
+	if($('input[name=TEMPLATE_Images]').length==1&&$('input[name=TEMPLATE_Images]').val()!=""&&!isNaN($('input[name=TEMPLATE_Images]').val())) { // add stock image charge for DesignEdit
+		this.pricingInfoAvailable=true;
+		this.data.categories[i]={id:"",cumulativeTotal:0,className:"DE_Image_Fee",title:"Stock Images",sort:102,type:"Header",pricingInfoAvailable:true,question:[{id1:"",id2:"",id3:"",dimen1:"",dimen2:"",dimen3:"",pricing:[{id:"",choice1:"",choice2:"",choice3:"",option1:"",option2:"",option3:"",setupCharge:($('input[name=TEMPLATE_Images]').val()*1),setupPercent:0,piecesMultiplier:"",piecesQuestion:"",subPricePerItem:"",breaks:[]}]}]};
+	}
+  if( PREFS && PREFS.Show_Job_Ticket_Subtotals ) {
+    this.data.categories.sort( function( a, b ) {
+      if( a.sort > b.sort ) return 1;
+      if( a.sort < b.sort ) return -1;
+      if( a.title > b.title ) return 1;
+      if( a.title < b.title ) return -1;
+      return 0;
+    });
+  }
+  if(this.editMode||SHOW_PRICING_EDITOR){ this.showForm(); SHOW_PRICING_EDITOR=false;}
+  else this.processQuote();
+}  
+
+InstantPricing.prototype.showQuote=function(){
+  var instance=this;
+  this.editMode=false;
+  var params=new AjaxFormContent();
+  params.addNameValue("DEBUG",1);
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/product.aj");  
+  if(PREFS.cXML_ID&&PREFS.cXML_ID>0) params.addNameValue('cXML_ID',PREFS.cXML_ID);
+  ajaxPostFunction(params,function(sc,st,rt,rxml){    
+//    ajaxCallFunction("ajax.iml?mdl=instantPricing/product.aj&Ref_Type="+this.refType+"&Ref_ID="+this.refID+"&"+Date(),function(sc,st,rt,rxml){
+        instance.res=new HTMLParse(getTagValue(rxml,'resource'));      
+        instance.processXML(rxml.getElementsByTagName('product')[0]);
+      },
+   "ajax.iml");
+}
+
+InstantPricing.prototype.showQuoteDetail=function(obj){
+  window.scrollTo(0,Geometry.upperLeftOffset(this.content).y);
+}
+
+InstantPricing.prototype.processQuote=function(){
+  var x, y, z;
+  var i, j, k;
+  var rowIndex;
+  var instance=this;
+  this.content.setAttribute("id","quote");  
+  if(this.HIDEPANEL) this.content.style["display"]="none";
+  this.content.innerHTML="";
+  if(this.pricingInfoAvailable){
+    var ct=new HTMLParse(this.content);
+    ct.appendObject(this.res.quote[0],true); 
+    this.data.quantity=ct.quote[0].quantity[0].node; Evt.addEventListener(this.data.quantity,"change",function(event){var ev=new Evt(event);instance.setQuantity(ev.source);},false);
+    Evt.addEventListener(this.data.quantity,"keyup",function(event){var ev=new Evt(event);instance.setQuantity(ev.source);},false);
+    this.data.total=ct.quote[0].total[0].node; Evt.addEventListener(this.data.total,"change",function(){instance.recalculateForm();},false);
+    this.data.totalinput=ct.quote[0].total[1].node;
+    this.data.totalEach=ct.quote[0].totalEach[0].node; Evt.addEventListener(this.data.totalEach,"change",function(){instance.recalculateForm();},false);
+    for(i=0;i<this.data.categories.length; i++){
+      if(this.data.categories[i].pricingInfoAvailable){
+        var catTitle = this.getCategoryName(this.data.categories[i]);
+        var catEl = null;
+        if( catTitle && typeof catTitle === "object" && catTitle.length ) {
+          var ret = [];
+          for( var j = 0; j < catTitle.length; j++ ) {
+            if( ! catEl ) catEl = catTitle[j].id;
+            ret.push( catTitle[j].value.trim() );
+          }
+          catTitle = ret.join( "<br>" );
+        }
+        ct.quote[0].breakdown[0].appendObject(this.res.quoteline[(this.data.categories[i].type=="Header"?0:1)],true);
+        rowIndex=ct.quote[0].breakdown[0].quoteline.length-1;
+        if(this.data.categories[i].type=="Header")  ct.quote[0].breakdown[0].quoteline[rowIndex].title[0].node.innerHTML=catTitle;
+        else ct.quote[0].breakdown[0].quoteline[rowIndex].title[0].node.innerHTML="+ "+this.data.categories[i].title;
+		if(this.data.categories[i].className) ct.quote[0].breakdown[0].quoteline[rowIndex].node.className = this.data.categories[i].className;
+        this.data.categories[i].catTotal=ct.quote[0].breakdown[0].quoteline[rowIndex].value[0].node;
+        this.data.categories[i].catTotal.innerHTML="0";
+        this.data.categories[i].catTotal.removeAttribute( 'data-sub_eid' );
+        if( catEl ) this.data.categories[i].catTotal.setAttribute( 'data-sub_eid', catEl );
+        Evt.addEventListener(this.data.categories[i].catTotal,"change",function(){instance.recalculateForm();},false);
+      }else{
+        this.data.categories[i].catTotal=new Object();
+      }
+    }
+
+    this.processQuickQuote();
+    if(this.quoteForm) this.recalculateForm();
+    this.floating.div.style["display"]="none";  
+  }
+  if(this.floating) this.floating.scroll();    
+}
+
+InstantPricing.prototype.processQuickQuote=function(){
+  if(this.pricingInfoAvailable){
+    var ct=new HTMLParse(this.content);
+    var instance=this;
+    ct.appendObject(this.res.quickquote[0],true);
+    this.quickQuoteDragger=new DragObject(ct.quickquote[0].node);
+    this.data.total2=ct.quickquote[0].total[0].node; Evt.addEventListener(this.data.total2,"change",function(){instance.recalculateForm();},false);
+    ct.quickquote[0].bump[0].node.onclick=function(){instance.showQuoteDetail(this);};
+    var coord=Geometry.upperLeftOffset(ct.quote[0].node);
+    this.floating=new floatingObject(ct.quickquote[0].node, parseInt(coord.x)-300, parseInt(coord.y)-30);
+    this.floating.div.style["display"]="none";  
+  }
+}
+InstantPricing.prototype.closeQuickQuote=function(){
+  if(this.floating){
+    var div=this.floating.div;
+    div.parentNode.removeChild(div);
+  }
+  this.floating=null;
+}
+
+
+InstantPricing.prototype.open=function(evt){
+  this.editMode=true;
+  this.showForm(); 
+}
+
+
+InstantPricing.prototype.loading=function(htmlobj){
+//  for(var i=0; i<this.priceFormList.length; i++){
+//    if(this.priceFormList[i].parent){
+//      this.priceFormList[i].parent.removeChild(this.priceFormList[i]);      
+//    }      
+//  }
+//  this.priceFormList= new Array();
+  htmlobj.node.innerHTML="";
+  htmlobj.appendObject(this.res.loading[0],true);
+   
+//  editor.appendObject(this.res.editor[0].loading[0],true);
+}
+
+InstantPricing.prototype.repositionQuickTotal=function(obj){
+  if(this.floating){ 
+    if(this.HIDEARROW){
+	  this.floating.div.style["display"]="none";
+    }else{
+      if(!obj) obj=this.quoteForm;
+      var coord=Geometry.upperLeftOffset(obj);
+      this.floating.setPos(parseInt(coord.x)-500,parseInt(coord.y)-30); 
+      this.floating.div.style["display"]="";
+	}
+  }
+}
+
+
+InstantPricing.prototype.setupForm=function(form){
+  var instance=this;
+  if(!form) form=this.quoteForm;
+  var i;
+  var inputs=form.getElementsByTagName('input');
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('Question_ID')>0||inputs[i].getAttribute('isQty')>0){
+      if(inputs[i].type.toLowerCase()=="text")  Evt.addEventListener(inputs[i],"change",function(event){var ev=new Evt(event);instance.recalculateForm(ev.source);},false);
+      else  Evt.addEventListener(inputs[i],"click",function(event){var ev=new Evt(event); instance.recalculateForm(ev.source);},false);
+    }
+    Evt.addEventListener(inputs[i],"focus",function(event){var ev=new Evt(event);instance.repositionQuickTotal(ev.source);},false);
+  }    
+  inputs=form.getElementsByTagName('select');
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('Question_ID')>0||inputs[i].getAttribute('isQty')>0){
+      Evt.addEventListener(inputs[i],"change",function(event){var ev=new Evt(event);instance.recalculateForm(ev.source);},false);
+    }
+    Evt.addEventListener(inputs[i],"focus",function(event){var ev=new Evt(event);instance.repositionQuickTotal(ev.source);},false);
+  }    
+}
+
+
+
+/******************  Pricing Editor  ***********************/
+
+InstantPricing.prototype.showForm=function(){
+  this.content.setAttribute("id","instantpricingform");
+  this.editMode=true;
+  if(!this.data){
+    return;
+  }  
+  var category,row, i,j,k,x;
+  var pricingOptions;
+  var optionTitle, choiceTitle, oldOptionTitle;
+  var instance=this;
+  var editor=new HTMLParse(this.content);  
+  this.loading(editor);
+  var params=new AjaxFormContent();  
+  params.addNameValue("DEBUG",1);
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/listCategories.aj");  
+  ajaxPostFunction(params,function(sc,st,rt,rxml){    
+    instance.content.innerHTML=rt; editor=new HTMLParse(instance.content);    
+    if(editor.instantPricingCategories[0].instantPricingLine){
+      for(var i=0;i<editor.instantPricingCategories[0].instantPricingLine.length;i++){
+        instance.setupCategory(editor.instantPricingCategories[0].instantPricingLine[i]);
+      }
+      instance.dragger=new DragDropListObject(editor.instantPricingCategories[0].node,function(){instance.sortCategories();});
+    }
+    instance.setupHeader(editor.header[0]);    
+    cat=editor.newInstantPricingLine[0];
+    cat.button[0].node.onclick=function(){instance.addCategory();};
+    cat.title[0].node.onkeypress=function(evt){t=new Evt(evt); if(t.key==13)instance.addCategory();};
+     
+    },
+    "ajax.iml" );
+     
+}
+
+InstantPricing.prototype.setupHeader=function(header){
+  var instance=this;
+  if(header.testmode[0].node.type=="button"){
+      header.testmode[0].node.onclick=function(){instance.changeTestMode()};
+  }
+  if(header.precision){
+      header.precision[0].node.onchange=function(){instance.changePrecision(this.options[this.selectedIndex].value)};    
+  }
+  if(header.pieces_multiplier){
+      header.pieces_multiplier[0].node.onchange=function(){instance.changeMultiplier(this.options[this.selectedIndex].value)};    
+  }
+  if(header.pricing_method){
+      header.pricing_method[0].node.onchange=function(){instance.changePricingMethod(this.options[this.selectedIndex].value)};    
+  }
+}
+
+InstantPricing.prototype.changeTestMode=function(){
+  var params=new AjaxFormContent();
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/changeSettings.aj");
+  params.addNameValue("ChangeTestMode",'1');
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("DEBUG",1);
+  var instance=this;
+  ajaxPostFunction(params,function(sc,st,rt,rxml){
+      var editor=new HTMLParse(instance.content);  
+      editor.header[0].node.innerHTML=rt;
+      editor=new HTMLParse(instance.content);  
+      instance.setupHeader(editor.header[0]);
+  },"ajax.iml");
+}
+InstantPricing.prototype.changePrecision=function(set){
+  this.unitPricePrecision=set;
+  var params=new AjaxFormContent();
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/changeSettings.aj");
+  params.addNameValue("ChangePrecision",'1');
+  params.addNameValue("IP_Unit_Price_Precision",set);
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("DEBUG",1);
+  var instance=this;
+  ajaxPostFunction(params,function(sc,st,rt,rxml){
+      var editor=new HTMLParse(instance.content);  
+      editor.header[0].node.innerHTML=rt;
+      editor=new HTMLParse(instance.content);  
+      instance.setupHeader(editor.header[0]);
+  },"ajax.iml");
+}
+InstantPricing.prototype.changeMultiplier=function(set){
+  this.multiplierQuestion=set;
+  var params=new AjaxFormContent();
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/changeSettings.aj");
+  params.addNameValue("ChangeMultiplier",'1');
+  params.addNameValue("IP_Pieces_Multiplier",set);
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("DEBUG",1);
+  var instance=this;
+  ajaxPostFunction(params,function(sc,st,rt,rxml){
+      var editor=new HTMLParse(instance.content);  
+      editor.header[0].node.innerHTML=rt;
+      editor=new HTMLParse(instance.content);  
+      instance.setupHeader(editor.header[0]);
+  },"ajax.iml");
+}
+InstantPricing.prototype.changePricingMethod=function(set){
+  var params=new AjaxFormContent();
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/changeSettings.aj");
+  params.addNameValue("ChangeBreakMethod",'1');
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("IP_Simple_Method",set);  
+  params.addNameValue("DEBUG",1);
+  var instance=this;
+  ajaxPostFunction(params,function(sc,st,rt,rxml){
+      var editor=new HTMLParse(instance.content);  
+      editor.header[0].node.innerHTML=rt;
+      editor=new HTMLParse(instance.content);  
+      instance.setupHeader(editor.header[0]);
+  },"ajax.iml");
+}
+
+
+InstantPricing.prototype.getCategoryBlockByID=function(id){
+  var editor=new HTMLParse(this.content);
+  if(!editor.instantPricingCategories) return null;
+  if(!editor.instantPricingCategories[0].instantPricingLine) return null;
+  for(var i=0; i<editor.instantPricingCategories[0].instantPricingLine.length; i++){
+    if(editor.instantPricingCategories[0].instantPricingLine[i].node.getAttribute('Cat_ID')==id){ 
+         return new HTMLParse(editor.instantPricingCategories[0].instantPricingLine[i].node);
+    }
+  }
+  return null;
+}
+InstantPricing.prototype.getQuestionBlockByID=function(qid){
+  var sp=qid.split(':');
+  var cat=this.getCategoryBlockByID(sp[0]);
+  if(!cat) return null;
+  for(var i=0;i<cat.content[0].questionlist[0].instantPricingQuestion.length;i++){
+    if(cat.content[0].questionlist[0].instantPricingQuestion[i].node.getAttribute('Question_ID')==qid){
+      return new HTMLParse(cat.content[0].questionlist[0].instantPricingQuestion[i].node);
+    }
+  }
+  return null;
+}
+InstantPricing.prototype.getOptionBlockByID=function(vid){
+  var sp=vid.split(':');
+  var question=this.getQuestionBlockByID(sp[0]+":"+sp[1]+":"+sp[2]+":"+sp[3]);
+  if(!question) return null;
+  for(var j=0;j<question.content[0].instantPricingOption.length;j++){
+    if(question.content[0].instantPricingOption[j].node.getAttribute('Value_ID')==vid){
+      return new HTMLParse(question.content[0].instantPricingOption[j].node);
+    }
+  }
+  return null;
+}
+
+InstantPricing.prototype.setupCategory=function(htmlobj,isopen){
+  var instance=this;
+  if(isopen){
+    htmlobj.bump[0].node.onclick=function(){instance.collapseCategory(this.getAttribute('Cat_ID'));};
+    htmlobj.node.className="selectedline";
+  }else{
+    htmlobj.bump[0].node.onclick=function(){instance.expandCategory(this.getAttribute('Cat_ID'));};
+    htmlobj.node.className="unselectedline";
+  }
+  htmlobj.title[0].node.onclick=function(){instance.editCategoryName(this);};
+  htmlobj.button[0].node.onclick=function(){instance.deleteCategory(this.getAttribute('Cat_ID'));};
+}
+InstantPricing.prototype.editCategoryName=function(obj){
+  if(obj.getAttribute('isEditing')!=1){
+    var old=obj.innerHTML;
+    var input=ce('input');
+    input.type="text";
+    input.style["width"]="300px";
+    input.setAttribute("oldValue",old);
+    input.value=old;
+    obj.innerHTML=""; obj.appendChild(input);
+    obj.setAttribute('isEditing',1);
+    input.focus();
+    var instance=this;
+    input.onblur=function(){instance.saveCategoryName(this);};
+  }
+}
+InstantPricing.prototype.saveCategoryName=function(obj){
+  var old=obj.getAttribute("oldValue");
+  var newName=obj.value;
+  var cat=this.getCategoryBlockByID(obj.parentNode.getAttribute('Cat_ID'));
+  obj.parentNode.setAttribute('isEditing',0);
+  obj.parentNode.innerHTML=newName;
+  var instance=this;
+  var params=new AjaxFormContent();  
+  params.addNameValue("DEBUG",1);  
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/changeCategory.aj");  
+  params.addNameValue('OLD_Category',old);
+  params.addNameValue('NEW_Category',newName);
+  ajaxPostFunction(params,function(sc,st,rt,rxml){   },"ajax.iml");
+}
+InstantPricing.prototype.getCategoryName=function(cat){
+  if( ! PREFS || ! PREFS.Show_Job_Ticket_Subtotals || typeof getAnswer !== "function" ) { // function getAnswer is defined in system/2011/js/printing-product.js
+    return cat.title;
+  }
+  var answers = [];
+  if( cat.question.length ) {
+    var q = cat.question[0];
+    for( var i = 1; i < 4; i++ ) {
+      var id = parseInt( q['id'+i] );
+      if( ! isNaN( id ) && id > 0 ) {
+        if( id === parseInt( this.multiplierQuestion ) ) continue; // ignore qty multiplier 
+        if( $(':input[data-element_id="'+id+'"][isQty]').length ) continue; // ignore qty question 
+        var answer = getAnswer( id );
+        if( answer && answer.label ) {
+          if( answer.value && answer.value !== "" ) answers.push( { id: id, value: answer.value, sort: answer.sort } );
+          else if( answer.label !== "" ) answers.push( { id: id, value: answer.label, sort: answer.sort } );
+        }
+      }
+    }
+  }
+  var ret = [];
+  if( answers.length ) {
+    answers.sort( function( a, b ) {
+      if( a.sort > b.sort ) return 1;
+      if( a.sort < b.sort ) return -1;
+      return 0;
+    });
+    for( var i = 0; i < answers.length; i++ ) {
+      if( answers.length === 1 || $.inArray( answers[i].id, this.usedElements ) < 0 ) {
+        this.usedElements.push( answers[i].id );
+        ret.push( answers[i] );
+      }
+    }
+  }
+  if( ret.length ) return ret;
+  else return cat.title;
+}
+InstantPricing.prototype.sortCategories=function(){
+  var editor=new HTMLParse(this.content);
+  var params=new AjaxFormContent();
+  params.addNameValue("DEBUG",1);  
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/sortCategories.aj");
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);  
+  for(var i=0;i<editor.instantPricingCategories[0].instantPricingLine.length;i++){
+    params.addNameValue("CAT_LIST",editor.instantPricingCategories[0].instantPricingLine[i].bump[0].node.getAttribute('Cat_ID'));
+  }
+  ajaxPostFunction(params,function(sc,st,rt,rxml){},"ajax.iml");
+}
+InstantPricing.prototype.addCategory=function(){
+  var instance=this;
+  var params=new AjaxFormContent();
+  var editor=new HTMLParse(this.content);   
+  params.addNameValue("DEBUG",1);  
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/addCategory.aj");  
+  params.addContent(editor.newInstantPricingLine[0].title[0].node);
+  ajaxPostFunction(params,function(sc,st,rt,rxml){  
+       var newLine=new HTMLParse(rt);
+       instance.setupCategory(newLine.instantPricingLine[0]);
+       editor.newInstantPricingLine[0].title[0].node.value="";
+       editor.instantPricingCategories[0].appendObject(newLine.instantPricingLine[0]);
+       instance.dragger=new DragDropListObject(editor.instantPricingCategories[0].node,function(){instance.sortCategories();});
+    }
+  ,"ajax.iml");
+}
+InstantPricing.prototype.expandCategory=function(cid){
+  var instance=this;
+  var cat=this.getCategoryBlockByID(cid);
+  this.loading(cat.content[0]);    
+  this.setupCategory(cat,true);
+  if(cat){
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("Cat_ID",cid);
+    params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/listQuestions.aj");  
+    ajaxPostFunction(params,function(sc,st,rt,rxml){  
+      cat.content[0].node.innerHTML=rt; var editor=new HTMLParse(cat.content[0].node);    
+      if(editor.questionlist[0].instantPricingQuestion){
+        for(var i=0;i<editor.questionlist[0].instantPricingQuestion.length;i++){
+          instance.setupQuestion(editor.questionlist[0].instantPricingQuestion[i])
+        }
+      }
+      editor.newInstantPricingQuestion[0].button[0].node.onclick=function(){instance.addQuestion(this.getAttribute('Cat_ID'));};
+    }
+  ,"ajax.iml");
+  
+  }  
+}
+InstantPricing.prototype.collapseCategory=function(cid){
+  var cat=this.getCategoryBlockByID(cid);
+  if(cat) this.setupCategory(cat);
+}
+
+InstantPricing.prototype.deleteCategory=function(cid){
+  var instance=this;
+  var cat=this.getCategoryBlockByID(cid);
+  if(cat&&confirm("You are about to delete a subtotal group. This action cannot be undone.  Do you want to continue?")){
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("Cat_ID",cid);
+    params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/deleteCategory.aj");  
+    ajaxPostFunction(params,function(sc,st,rt,rxml){ 
+         cat.node.parentNode.removeChild(cat.node);
+     }
+    ,'ajax.iml');  
+  }
+}
+
+InstantPricing.prototype.setupQuestion=function(htmlobj,isopen){
+  var instance=this;
+  if(isopen){
+    htmlobj.bump[0].node.onclick=function(){instance.collapseQuestion(this.getAttribute('Question_ID'));};
+    htmlobj.node.className="selectedline";
+  }else{
+    htmlobj.bump[0].node.onclick=function(){instance.expandQuestion(this.getAttribute('Question_ID'));};
+    htmlobj.node.className="unselectedline";
+  }
+  htmlobj.button[0].node.onclick=function(){instance.deleteQuestion(this.getAttribute('Question_ID'));};
+}
+InstantPricing.prototype.addQuestion=function(cid){
+  var instance=this;
+  var cat=this.getCategoryBlockByID(cid);
+  if(cat){
+    var input=cat.content[0].newInstantPricingQuestion[0].title[0].node;
+    var val=input.options[input.selectedIndex].value.split(":");
+    input.removeChild(input.options[input.selectedIndex]);
+    input.selectedIndex=0;
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("Cat_ID",cid);    
+    params.addNameValue("Q1_ID",val[0]?val[0]:"");    
+    params.addNameValue("Q2_ID",val[1]?val[1]:"");    
+    params.addNameValue("Q3_ID",val[2]?val[2]:"");            
+    params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/addQuestion.aj");  
+    ajaxPostFunction(params,function(sc,st,rt,rxml){ 
+         var question=new HTMLParse(rt);
+         cat.content[0].questionlist[0].appendObject(question.instantPricingQuestion[0]);
+         instance.setupQuestion(question.instantPricingQuestion[0],true);
+         var quest=question.instantPricingQuestion[0].content[0];
+         for(var i=0;i<quest.instantPricingOption.length;i++){
+           instance.setupOption(quest.instantPricingOption[i]);
+         }
+         if(quest.instantPricingOption.length==1) instance.expandOption(quest.instantPricingOption[0].node.getAttribute("Value_ID"));
+       }
+    ,"ajax.iml");   
+  }
+}
+InstantPricing.prototype.expandQuestion=function(qid){
+  var instance=this;
+  var val=qid.split(":");
+  var quest=this.getQuestionBlockByID(qid);
+  this.loading(quest.content[0]);
+  this.setupQuestion(quest,true);
+  if(quest){
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("Cat_ID",val[0]?val[0]:"");    
+    params.addNameValue("Q1_ID",val[1]?val[1]:"");    
+    params.addNameValue("Q2_ID",val[2]?val[2]:"");    
+    params.addNameValue("Q3_ID",val[3]?val[3]:"");            
+    params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/listOptions.aj");  
+    ajaxPostFunction(params,function(sc,st,rt,rxml){  
+      quest.content[0].node.innerHTML=rt; var editor=new HTMLParse(quest.content[0].node);    
+      if(editor.instantPricingOption){
+        for(var i=0;i<editor.instantPricingOption.length;i++){
+          instance.setupOption(editor.instantPricingOption[i])
+        }
+        if(editor.instantPricingOption.length==1) instance.expandOption(editor.instantPricingOption[0].node.getAttribute("Value_ID"));
+      }
+    }
+    ,"ajax.iml");  
+  }      
+}
+InstantPricing.prototype.collapseQuestion=function(qid){  
+  var quest=this.getQuestionBlockByID(qid);  
+  this.setupQuestion(quest);
+}
+InstantPricing.prototype.deleteQuestion=function(qid){
+  var instance=this;
+  var val=qid.split(":");
+  var quest=$('[dataname=instantPricingQuestion][Question_ID='+qid+']');
+  if(quest.size()>0&&confirm("You are about to delete pricing information. This action cannot be undone.  Do you want to continue?")){
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("Cat_ID",val[0]?val[0]:"");    
+    params.addNameValue("Q1_ID",val[1]?val[1]:"");    
+    params.addNameValue("Q2_ID",val[2]?val[2]:"");    
+    params.addNameValue("Q3_ID",val[3]?val[3]:"");            
+    params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/deleteQuestion.aj");  
+    ajaxPostFunction(params,function(sc,st,rt,rxml){ 
+	     if(!val[0])val[0]='';
+	     if(!val[1])val[2]='';
+	     if(!val[2])val[2]='';
+	     if(!val[3])val[3]='';
+	     $('[dataname=newInstantPricingQuestion][cat_id='+val[0]+'] select[name=IP_Question]')
+		 .append($('<option value="'+val[1]+':'+val[2]+':'+val[3]+'">'+quest.find('[dataname=title]').html()+'</option>'));
+         quest.remove();
+     }
+    ,'ajax.iml');  
+  }
+}
+
+
+InstantPricing.prototype.setupOption=function(htmlobj,isopen){
+  var instance=this;
+  if(isopen){
+    htmlobj.bump[0].node.onclick=function(){instance.collapseOption(this.getAttribute('Value_ID'))};
+    if(htmlobj.title[0].morelink)  htmlobj.title[0].morelink[0].node.onclick=function(){instance.collapseOption(this.getAttribute('Value_ID'));return false;};    
+    htmlobj.node.className="selectedline";
+  }else{  
+    htmlobj.bump[0].node.onclick=function(){instance.expandOption(this.getAttribute('Value_ID'))};
+    if(htmlobj.title[0].morelink)  htmlobj.title[0].morelink[0].node.onclick=function(){instance.expandOption(this.getAttribute('Value_ID'));return false;};
+    htmlobj.node.className="unselectedline";
+  }
+}
+InstantPricing.prototype.expandOption=function(vid){
+  var instance=this;
+  var option=this.getOptionBlockByID(vid);
+  if(option){
+    this.setupOption(option,true);
+    var val=vid.split(":");
+    var val_list=option.node.getAttribute('Value_List').split(":|:");
+    this.loading(option.content[0]);
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("Cat_ID",val[0]?val[0]:"");    
+    params.addNameValue("Q1_ID",val[1]?val[1]:"");    
+    params.addNameValue("Q2_ID",val[2]?val[2]:"");    
+    params.addNameValue("Q3_ID",val[3]?val[3]:"");            
+    params.addNameValue("value1",val_list[0]?val_list[0]:"");            
+    params.addNameValue("value2",val_list[1]?val_list[1]:"");            
+    params.addNameValue("value3",val_list[2]?val_list[2]:"");          
+    params.addNameValue("Value_ID",vid);  
+    params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/pricingForm.aj");  
+    ajaxPostFunction(params,function(sc,st,rt,rxml){  
+      option.content[0].node.innerHTML=rt; var editor=new HTMLParse(option.content[0].node);    
+      instance.setupPricing(editor);
+     }
+     ,"ajax.iml");  
+  }      
+}
+InstantPricing.prototype.collapseOption=function(vid){
+  var option=this.getOptionBlockByID(vid);
+  this.setupOption(option);
+}
+
+InstantPricing.prototype.sortPricing=function(htmlobj){
+  var instance=this;
+  for(i=htmlobj.pricingGrid[0].pricingRow.length-2;i>=1; i--){
+     if(htmlobj.pricingGrid[0].pricingRow[i].startqty[0].node.value*1==NaN||htmlobj.pricingGrid[0].pricingRow[i].startqty[0].node.value=="") htmlobj.pricingGrid[0].removeObject(htmlobj.pricingGrid[0].pricingRow,i);
+  }
+  var br=new Array();
+  var i=htmlobj.pricingGrid[0].pricingRow.length-1;
+  if(htmlobj.pricingGrid[0].pricingRow[i].startqty[0].node.value!=""){
+    htmlobj.pricingGrid[0].appendObject(htmlobj.pricingGrid[0].pricingRow[i],true);
+  }
+  br[0]=new Object();
+  br[0].qty=htmlobj.pricingGrid[0].pricingRow[0].startqty[0].node.innerHTML*1;
+  br[0].price=htmlobj.pricingGrid[0].pricingRow[0].priceperitem[0].node.value*1;
+  for(i=1;i<htmlobj.pricingGrid[0].pricingRow.length-1; i++){
+    br[i]=new Object();
+    br[i].qty=htmlobj.pricingGrid[0].pricingRow[i].startqty[0].node.value*1;
+    br[i].price=htmlobj.pricingGrid[0].pricingRow[i].priceperitem[0].node.value*1; 
+    htmlobj.pricingGrid[0].pricingRow[i].startqty[0].node.onchange=function(){instance.updateQtyBreak(this.getAttribute("Value_ID"));};         
+  }
+  i=htmlobj.pricingGrid[0].pricingRow.length-1;
+  htmlobj.pricingGrid[0].pricingRow[i].startqty[0].node.onchange=function(){instance.updateQtyBreak(this.getAttribute("Value_ID"));};         
+  htmlobj.pricingGrid[0].pricingRow[i].startqty[0].node.value="";
+  htmlobj.pricingGrid[0].pricingRow[i].endqty[0].node.innerHTML="";  
+  br.sort(function(a,b){return a.qty-b.qty;});  
+  htmlobj.pricingGrid[0].pricingRow[0].startqty[0].node.innerHTML=br[0].qty;
+  htmlobj.pricingGrid[0].pricingRow[0].endqty[0].node.innerHTML="and up";
+  htmlobj.pricingGrid[0].pricingRow[0].priceperitem[0].node.value=Number(br[0].price).minPrecision(2);
+  for(i=1;i<br.length;i++){
+    htmlobj.pricingGrid[0].pricingRow[i].startqty[0].node.value=br[i].qty;
+    htmlobj.pricingGrid[0].pricingRow[i].endqty[0].node.innerHTML="and up";
+    htmlobj.pricingGrid[0].pricingRow[i-1].endqty[0].node.innerHTML="to "+(br[i].qty-1);
+    htmlobj.pricingGrid[0].pricingRow[i].priceperitem[0].node.value=Number(br[i].price).minPrecision(2);    
+  }  
+}
+InstantPricing.prototype.setupPricing=function(htmlobj){
+  var instance=this;
+  if(htmlobj.prPiecesMultiplier)
+    htmlobj.prPiecesMultiplier[0].node.onchange=function(){instance.updateMultiplier(this.getAttribute("Value_ID"),this.options[this.selectedIndex].innerHTML);};
+  htmlobj.button[0].node.onclick=function(){instance.updatePricing(this.getAttribute("Value_ID"));};
+  htmlobj.button[1].node.onclick=function(){instance.clearPricing(this.getAttribute("Value_ID"));};
+  this.sortPricing(htmlobj);
+}
+InstantPricing.prototype.updateQtyBreak=function(vid){
+  var option=this.getOptionBlockByID(vid);
+  this.sortPricing(option.content[0]);
+}
+InstantPricing.prototype.updateMultiplier=function(vid,label){
+  var option=this.getOptionBlockByID(vid);
+  if(option){
+    for(var i=0; i<option.content[0].pricingGrid[0].pricingRow.length; i++){
+      option.content[0].pricingGrid[0].pricingRow[i].qtylabel[0].node.innerHTML=label;
+    }
+  }      
+}
+
+InstantPricing.prototype.updatePricing=function(vid){
+  var option=this.getOptionBlockByID(vid);
+  var instance=this;
+  if(option){
+    var val=vid.split(":");
+    var val_list=option.node.getAttribute('Value_List').split(":|:");    
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("Cat_ID",val[0]?val[0]:"");    
+    params.addNameValue("Q1_ID",val[1]?val[1]:"");    
+    params.addNameValue("Q2_ID",val[2]?val[2]:"");    
+    params.addNameValue("Q3_ID",val[3]?val[3]:"");            
+    params.addNameValue("value1",val_list[0]?val_list[0]:"");            
+    params.addNameValue("value2",val_list[1]?val_list[1]:"");            
+    params.addNameValue("value3",val_list[2]?val_list[2]:"");          
+    params.addNameValue("Value_ID",vid);  
+    params.addContent(option.content[0].prSetupCharge[0].node);
+    params.addContent(option.content[0].prSetupPercent[0].node);
+    if(option.content[0].prPiecesMultiplier) params.addContent(option.content[0].prPiecesMultiplier[0].node);
+    params.addContent(option.content[0].pricingGrid[0].pricingRow[0].priceperitem[0].node); 
+    for(var i=1; i<option.content[0].pricingGrid[0].pricingRow.length-1; i++){
+      params.addNameValue("QTY_BREAK",option.content[0].pricingGrid[0].pricingRow[i].startqty[0].node.value+":"+option.content[0].pricingGrid[0].pricingRow[i].priceperitem[0].node.value);  
+    }
+    params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/updatePricing.aj");  
+    this.loading(option.content[0]);
+    ajaxPostFunction(params,function(sc,st,rt,rxml){  
+      option.title[0].morelink[0].status_icon[0].node.src=PREFS.OPC_Version_Path+"instantPricing/images/defined.gif";    
+      option.content[0].node.innerHTML=rt; var editor=new HTMLParse(option.content[0].node);    
+      instance.setupPricing(editor);
+     }
+     ,"ajax.iml");  
+  }      
+}
+InstantPricing.prototype.clearPricing=function(vid){
+  var option=this.getOptionBlockByID(vid);
+  var instance=this;
+  if(option){
+    var val=vid.split(":");
+    var val_list=option.node.getAttribute('Value_List').split(":|:");    
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("Cat_ID",val[0]?val[0]:"");    
+    params.addNameValue("Q1_ID",val[1]?val[1]:"");    
+    params.addNameValue("Q2_ID",val[2]?val[2]:"");    
+    params.addNameValue("Q3_ID",val[3]?val[3]:"");            
+    params.addNameValue("value1",val_list[0]?val_list[0]:"");            
+    params.addNameValue("value2",val_list[1]?val_list[1]:"");            
+    params.addNameValue("value3",val_list[2]?val_list[2]:"");          
+    params.addNameValue("Value_ID",vid);  
+    params.addNameValue("mdl",PREFS.OPC_Version_Path+"instantPricing/updatePricing.aj");  
+    this.loading(option.content[0]);
+    ajaxPostFunction(params,function(sc,st,rt,rxml){  
+      option.content[0].node.innerHTML=rt; var editor=new HTMLParse(option.content[0].node);    
+      instance.setupPricing(editor);
+     }
+     ,"ajax.iml");  
+  }      
+}
+
+
+/******************  Calculate Price  ***********************/
+InstantPricing.prototype.setQuantity=function(obj){
+  var form=this.quoteForm;
+  var i,j;
+  var qty=(this.data.quantity.nodeName.toLowerCase()==="span")?Number(this.data.quantity.innerHTML):Number(this.data.quantity.value);
+  if(!(qty>0))qty="";
+  var inputs=form.getElementsByTagName('input');
+	
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('isQty')>0&&inputs[i].className!="hidden_input"&&$(inputs[i]).is(':visible')){
+      if(inputs[i].type.toLowerCase()=="text") inputs[i].value=qty;
+			else if(inputs[i].value==qty) inputs[i].click();
+    }
+  }    
+  inputs=form.getElementsByTagName('select');
+
+	for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('isQty')>0&&inputs[i].className!="hidden_input"){
+      for(j=0; j<inputs[i].options.length; j++){
+        if(inputs[i].options[j].value==qty) inputs[i].selectedIndex=j;
+      }
+    }
+  }    
+  this.recalculateForm(obj);
+  if(typeof WeightCalcObj !=='undefined')WeightCalcObj.recalculateForm();
+}
+
+InstantPricing.prototype.getQuestionValue=function(id,def){
+  var val=def;  
+  var found=false;
+  var inputs=this.quoteForm.getElementsByTagName('input');
+	
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('Question_ID')>0&&inputs[i].getAttribute('Question_ID')==id&&inputs[i].className!="hidden_input"){
+      val=Number(inputs[i].value)*1;      
+      found=true;
+    }    
+  }    
+  if(!found){
+    inputs=this.quoteForm.getElementsByTagName('select');
+		
+    for(i=0; i<inputs.length; i++){
+      if(inputs[i].getAttribute('Question_ID')>0&&inputs[i].getAttribute('Question_ID')==id&&inputs[i].className!="hidden_input"){
+        val=Number(inputs[i].options[inputs[i].selectedIndex].value)*1;      
+        found=true;
+      }            
+    }
+  }    
+  return val;
+}
+
+InstantPricing.prototype.recalculateForm=function(obj){
+  var form=this.quoteForm;
+  this.repositionQuickTotal(obj);
+  var options=new Array();
+  var qty=0;
+	var QTY_FOUND=false;
+  var multiplier=1;  
+  var index=0;
+  var i;
+  var inputs=form.getElementsByTagName('input');
+
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('Question_ID')>0&&(inputs[i].checked||inputs[i].type.toLowerCase()=="hidden")&&inputs[i].className!="hidden_input"){
+      options[index]=new Object();
+      options[index].id=inputs[i].getAttribute('Question_ID');
+			options[index].option=inputs[i].getAttribute('data-option_id');
+      options[index].choice=inputs[i].value.replace(/\s*$/,'');
+      options[index].type=inputs[i].type.toLowerCase();
+      options[index].type_id=inputs[i].getAttribute('data-type');
+			options[index].override=($(inputs[i].parentNode).find('input.dimension_field:checked').length>0||($(inputs[i].parentNode).find('select.dimension_select').length>0&&$(inputs[i].parentNode).find('select.dimension_select')[0].selectedIndex!=$(inputs[i].parentNode).find('select.dimension_select').find('option').length-1))?0:1;
+			options[index].numeric=(inputs[i].getAttribute('isNumeric')>0)?1:0;
+      index++;
+    } else if(inputs[i].getAttribute('Question_ID')>0&&inputs[i].getAttribute('isNumeric')>0){
+      options[index]=new Object();
+      options[index].id=inputs[i].getAttribute('Question_ID');
+      options[index].option=inputs[i].getAttribute('data-option_id');
+      options[index].choice=inputs[i].value.replace(/\s*$/,'');
+      options[index].type=inputs[i].type.toLowerCase();
+      options[index].type_id=inputs[i].getAttribute('data-type');
+			options[index].override=0;
+			options[index].numeric=1;
+      index++;    
+    }
+    if(inputs[i].getAttribute('isQty')>0&&!QTY_FOUND&&inputs[i].className!="hidden_input"&&$(inputs[i]).is(':visible')){
+      if(inputs[i].type.toLowerCase()!="radio"||inputs[i].checked) {
+				if(!isNaN(Number(inputs[i].value)&&Number(inputs[i].value)!=0)) {
+					qty=Number(inputs[i].value);
+					QTY_FOUND=true;
+				}
+			}
+    }
+    if(inputs[i].getAttribute('Question_ID')>0&&inputs[i].getAttribute('Question_ID')==this.multiplierQuestion){
+      multiplier=Number(inputs[i].value)*1;      
+    }    
+  }    
+  inputs=form.getElementsByTagName('select');
+	
+  for(i=0; i<inputs.length; i++){
+    if( inputs[i].getAttribute('Question_ID')>0 && inputs[i].className != "hidden_input" ){
+      options[index]=new Object();
+      options[index].id=inputs[i].getAttribute('Question_ID');
+			options[index].element=inputs[i].options[inputs[i].selectedIndex]&&inputs[i].options[inputs[i].selectedIndex].getAttribute('data-element_id')>0?inputs[i].options[inputs[i].selectedIndex].getAttribute('data-element_id'):'';
+      options[index].option=inputs[i].options[inputs[i].selectedIndex].getAttribute('data-option_id');
+      options[index].choice=inputs[i].value.replace(/\s*$/,'');
+      options[index].type='select'; 
+      options[index].type_id=inputs[i].getAttribute('data-type');
+			options[index].override=0;
+			options[index].numeric=0;
+      index++;
+    }
+    if(inputs[i].getAttribute('isQty')>0&&!QTY_FOUND/*&&(typeof obj=="undefined"||inputs[i]==obj)*/){
+			if(inputs[i].options[inputs[i].selectedIndex] && !isNaN(Number(inputs[i].options[inputs[i].selectedIndex].value))) {
+				qty=Number(inputs[i].options[inputs[i].selectedIndex].value);
+				if($('select[name=Qty]').length>0) $('select[name=Qty]')[0].selectedIndex=inputs[i].selectedIndex;
+				QTY_FOUND=true;
+			}
+    }
+    if(inputs[i].getAttribute('Question_ID')>0&&inputs[i].getAttribute('Question_ID')==this.multiplierQuestion){
+      multiplier=Number(inputs[i].options[inputs[i].selectedIndex].value)*1;      
+    }            
+  }
+	if(qty==0) {
+		if($('span[dataname=quantity]').length==1) {
+			qty=Number($('span[dataname=quantity]').text());
+		}
+	}
+  if(multiplier<1) multiplier=1; 
+  this.calculatePricing(qty,options,multiplier);
+}
+
+InstantPricing.prototype.calculatePricing=function(qty,options,multiplier){
+  if(!multiplier||multiplier<1) multiplier=1;
+  var subTotal;
+	if(this.data) {
+		if(this.data.quantity) this.data.quantity.value= isNaN(qty) ? '' : qty;
+		if( this.data.total ) this.data.total.innerHTML=0;
+		if( this.data.total2 ) this.data.total2.innerHTML=0;
+		if( this.data.totalinput ) this.data.totalinput.value=0;
+		if( this.data.totalEach ) this.data.totalEach.innerHTML=0;
+		var i, j, k,x,  breaks;
+		for(i=0; i<this.data.categories.length; i++){
+			if(i>0){
+				 this.data.categories[i].cumulativeTotal=this.data.categories[i-1].cumulativeTotal;    
+			} else {
+				this.data.categories[i].cumulativeTotal=0;
+			}
+			this.data.categories[i].catTotal.innerHTML=0;
+			for(j=0; j<this.data.categories[i].question.length; j++){
+				this.getPricing(this.data.categories[i].question[j],options,i,qty*multiplier);
+			}
+			this.data.categories[i].cumulativeTotal+=Number(this.data.categories[i].catTotal.innerHTML);
+			this.data.total.innerHTML= isNaN( this.data.categories[i].cumulativeTotal.toFixed(2) ) ? '&ndash;.&ndash;&ndash;' : this.data.categories[i].cumulativeTotal.toFixed(2);
+			this.data.totalinput.value= isNaN( this.data.categories[i].cumulativeTotal.toFixed(2) ) ? '&ndash;.&ndash;&ndash;' : this.data.categories[i].cumulativeTotal.toFixed(2);
+			this.data.total2.innerHTML= isNaN( this.data.categories[i].cumulativeTotal.toFixed(2) ) ? '&ndash;.&ndash;&ndash;' : this.data.categories[i].cumulativeTotal.toFixed(2);
+			if(!isNaN(this.data.categories[i].cumulativeTotal.toFixed(2))) $('.quote_action, .actions_gap').css('display','none').addClass('pricingNAhidden');
+			else $('.pricingNAhidden').css('display','inline').removeClass('pricingNAhidden');
+		}  
+		if(qty>0&&this.data.totalEach) this.data.totalEach.innerHTML= isNaN(this.data.total.innerHTML/(qty*multiplier)) ? '&ndash;.&ndash;&ndash;' : (this.data.total.innerHTML/(qty*multiplier)).toFixed(this.unitPricePrecision);
+		else if( this.data.totalEach ) this.data.totalEach.innerHTML=Number(0).toFixed(this.unitPricePrecision);
+	}
+}
+
+InstantPricing.prototype.marginalPricing=function(qty,pricing,mult){
+   var total=0;
+   var previousBreak=0;
+   var previousPrice=pricing.subPricePerItem;
+   total=pricing.subPricePerItem*this.data.minQty*mult;
+   previousBreak=this.data.minQty;
+   for(x=0;x<pricing.breaks.length&&qty-previousBreak>0;x++){
+      if(qty>=pricing.breaks[x].qty){
+        total+=previousPrice*(pricing.breaks[x].qty-previousBreak-1)*mult;
+        previousBreak=pricing.breaks[x].qty-1
+      }else{         
+        total+=previousPrice*(qty-previousBreak)*mult;
+        previousBreak=qty;
+        break;
+      }
+      previousPrice=pricing.breaks[x].value; 
+   }
+   total+=previousPrice*(qty-previousBreak)*mult;
+   return total;
+}
+
+InstantPricing.prototype.simplePricing=function(qty,pricing,mult){
+   var unitPrice=pricing.subPricePerItem;
+   for(x=0;x<pricing.breaks.length;x++){
+      if(qty>=pricing.breaks[x].qty) unitPrice=pricing.breaks[x].value; 
+   }
+   return qty*unitPrice*mult;
+}
+
+
+InstantPricing.prototype.getPricing=function(question,options,cindex,qty){
+  var multiplier, qty1;
+  var value1=""; var value2=""; var value3="";
+  var i,j,process,match,numericPricingValue;
+  var pricing=null;
+	var colorCharge=0;
+  var subTotal=Number(this.data.categories[cindex].catTotal.innerHTML);
+  for(i=0; i<question.pricing.length; i++){
+     numericPricingValue=1;
+     pricing=question.pricing[i];
+     process=true;
+     if(question.id1>0||pricing.option1!=""||pricing.choice1!=""){
+       match=false;
+       for(j=0;j<options.length;j++){
+         if(options[j].id==question.id1&&options[j].numeric!=1&&((pricing.option1!=""&&pricing.option1==options[j].option)||pricing.choice1==options[j].choice.replace(/\s*$/,''))){
+					 match=true; 
+					 break; 
+				 }
+         if(options[j].id==question.id1&&(pricing.choice1=="Custom"||pricing.choice1=="Custom Dimensions"||pricing.choice1=="")&&(options[j].type=="text"||(options[j].type=="hidden"&&options[j].numeric==1))){
+					 if(options[j].type_id!=19||question.dimen1=="square"||options[j].override==1) {
+						 match=true; 
+						 numericPricingValue=Number(options[j].choice); 
+						 break;
+					 }
+				 }
+            // match numeric input fields
+       }
+       if(!match) process=false;
+     }
+     if(process&&(question.id2>0||pricing.option2!=""||pricing.choice2!="")){
+       match=false;
+       for(j=0;j<options.length;j++){
+         if(options[j].id==question.id2&&options[j].numeric!=1&&((pricing.option2!=""&&pricing.option2==options[j].option)||pricing.choice2==options[j].choice.replace(/\s*$/,''))){
+					 match=true; 
+					 break; 
+				 }
+         if(options[j].id==question.id2&&(pricing.choice2=="Custom"||pricing.choice2=="Custom Dimensions"||pricing.choice2=="")&&(options[j].type=="text"||(options[j].type=="hidden"&&options[j].numeric==1))){
+					 var cont=true;
+					 if(options[j].type_id!=19||question.dimen2=="square"||options[j].override==1) {
+						 match=true; 
+						 numericPricingValue=numericPricingValue*Number(options[j].choice); 
+						 break;
+					 }
+				 }
+       }
+       if(!match) process=false;
+     }
+     if(process&&(question.id3>0||pricing.option3!=""||pricing.choice3!="")){
+       match=false;
+       for(j=0;j<options.length;j++){
+         if(options[j].id==question.id3&&options[j].numeric!=1&&((pricing.option3!=""&&pricing.option3==options[j].option)||pricing.choice3==options[j].choice.replace(/\s*$/,''))){
+					 match=true; 
+					 break; 
+				 }
+         if(options[j].id==question.id3&&(pricing.choice3=="Custom"||pricing.choice3=="Custom Dimensions"||pricing.choice3=="")&&(options[j].type=="text"||(options[j].type=="hidden"&&options[j].numeric==1))){
+					 if(options[j].type_id!=19||question.dimen3=="square"||options[j].override==1) {
+						 match=true; 
+						 numericPricingValue=numericPricingValue*Number(options[j].choice); 
+						 break;
+					 }
+				 }
+
+       }
+       if(!match) process=false;
+     }
+			if(process&&this.data.colors.length>0&&question.id1=="INKS") {
+				for(j=0;j<options.length;j++) {
+					for(k=0;k<this.data.colors.length;k++) {
+						if(options[j].id==this.data.colors[k].id&&options[j].hasOwnProperty('element')&&options[j].element==this.data.colors[k].element&&(options[j].hasOwnProperty('option')&&options[j].option!=""&&(options[j].option==this.data.colors[k].option||(this.data.colors[k].option==0&&options[j].option!=this.data.colors[k].custom)))) {
+							colorCharge+=parseFloat(this.data.colors[k].setup_charge*1);
+						}
+					}
+				}
+				if(colorCharge==0) $(this.data.categories[cindex].catTotal).closest('tr').addClass('empty-subtotal').hide();
+				else $(this.data.categories[cindex].catTotal).closest('tr').removeClass('empty-subtotal').css({"display":"table-row"});
+			}
+     if(process){
+          multiplier=1;
+          qty1=qty;
+          if(pricing.piecesMultiplier>0){ multiplier=this.getQuestionValue(pricing.piecesMultiplier,1); }
+          if(pricing.piecesQuestion>0){ qty1=this.getQuestionValue(pricing.piecesQuestion,0); }
+          subTotal=subTotal+pricing.setupCharge;
+					subTotal=subTotal+colorCharge;
+          subTotal=subTotal+pricing.setupPercent*this.data.categories[cindex].cumulativeTotal/100;
+          if(this.data.marginal)  subTotal=subTotal+this.marginalPricing(qty1*multiplier,pricing,numericPricingValue);
+          else subTotal=subTotal+this.simplePricing(qty1*multiplier,pricing,numericPricingValue);
+     }
+  }
+	this.data.categories[cindex].catTotal.innerHTML= isNaN( subTotal ) ? '&ndash;.&ndash;&ndash;' : subTotal.toFixed(2);
+  if( isNaN( subTotal ) || subTotal === 0 ) $(this.data.categories[cindex].catTotal).closest('tr').addClass('empty-subtotal');
+  else $(this.data.categories[cindex].catTotal).closest('tr').removeClass('empty-subtotal');
+}
+
+/* added by Carl 8/14/13 - needed so qty dropdowns work in tandem with the corresponding qty dropdown in the quote box - 
+	 This had been handled elsewhere but was causing people to have to reselect a quantity every time they changed another field.
+	 See the commented out portion of line 868 above. The line starts "if(inputs[i].getAttribute('isQty')>0..."  */
+	 
+$(document).ready(function() {
+	$(document)
+		.on('change','select[isQty=1]',function(e) {
+			if( ! e.triggered ) {
+				var index=$(this).prop('selectedIndex');
+				var isIPBox=$(this).closest('#quote').length==1;
+				$('select[isQty=1]').each(function() {
+					$(this).prop('selectedIndex',index);
+					if(($(this).closest('#quote').length==1&&!isIPBox)||($(this).closest('#quote').length==0&&isIPBox)) {
+						for(var i=0; i<InstantPricingList.length; i++){
+							InstantPricingList[i].recalculateForm($(this));
+						}
+					}
+					if( isIPBox && $(this).is( '[data-dependencies]' ) ) {
+						$(this).trigger( $.Event( 'change', { triggered: true } ) );
+					}
+				});
+			}
+  });
+});

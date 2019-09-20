@@ -1,0 +1,148 @@
+function initImageSlides($instance) {
+	$instance.slideContainer = $('#product_slides', $instance );
+	if($instance.slideContainer.length>0) {
+		$instance.slideContainer.css('left','0')
+		$instance.autoRotate = true;
+		$instance.autoRotateDir = 'right';
+		$instance.autoRotateInterval = setInterval(function(){ if($instance.autoRotate) $('#product_slide_'+$instance.autoRotateDir, $instance ).click(); }, 5000);
+		$instance.on('mouseover', function(e){
+			$instance.autoRotate = false;
+		});
+		$instance.on('mouseout', function(e){
+			$instance.autoRotate = true;
+		});
+
+		$instance.isRotating = false;
+		$instance.on('click', "#product_slide_left", function(e){
+			e.preventDefault();
+			if (!$instance.isRotating) {
+				$instance.slideContainerLeft = parseInt($instance.slideContainer.css('left'));
+				if ( $instance.slideContainerLeft < 0 ) {
+					$instance.isRotating = true;
+					$instance.slideContainer.animate( { left: $instance.slideContainerLeft+240 + 'px' }, 1000, 'swing', function(){
+						$instance.isRotating = false;
+						$('#product_slide_right', $instance ).css('color','#244474');
+						/* $('#product_slide_right').text('>'); */
+						if ( parseInt($instance.slideContainer.css('left')) >= 0 ) {
+							$('#product_slide_left', $instance ).css('color','white');
+							/* $('#product_slide_left').html('&nbsp;&nbsp;&nbsp;'); */
+							$instance.autoRotateDir = 'right';
+						}
+					});
+				}
+			}
+		});
+		$instance.on('click', "#product_slide_right", function(e){
+			e.preventDefault();
+			if (!$instance.isRotating) {
+				$instance.slideContainerLeft = parseInt($instance.slideContainer.css('left'));
+				if ( $instance.slideContainerLeft > -240 * ($instance.slideContainer.children().length - 1) ) {
+					$instance.isRotating = true;
+					$instance.slideContainer.animate( { left: $instance.slideContainerLeft-240 + 'px' }, 1000, 'swing', function(){
+						$instance.isRotating = false;
+						$('#product_slide_left', $instance ).css('color','#244474');
+						/* $('#product_slide_left').text('<'); */
+						if ( parseInt($instance.slideContainer.css('left')) <= -240 * ($instance.slideContainer.children().length - 1) ) {
+							$('#product_slide_right', $instance ).css('color','white');
+							/* $('#product_slide_right').html('&nbsp;&nbsp;&nbsp;'); */
+							$instance.autoRotateDir = 'left';
+						}
+					});
+				}
+			}
+		});
+	}
+}
+
+$(document).ready(function(){
+
+	$('.product_image').each(function(){
+		initImageSlides($(this));
+	});
+
+	$('#view-order-history').on('click', function(e){
+		$('.order-history').fadeIn();
+	});
+	$('#close-order-history').on('click', function(e){
+		$('.order-history').fadeOut();
+	});
+	
+	/* pagination tools */
+	
+	$('section.product_list')
+	
+.on('setup','div.pagination',function() {
+	if($(this).find('.scroller').find('a.active').length>0) {
+		var $pagenumber = $(this).closest('.pagination').find('.pagenumber');
+		var $scroller = $pagenumber.find('.scroller');
+		var $pagect = $scroller.find('a').length;
+		$scroller.width($pagect*37);
+		if($pagect > 10) { // set up "prev 10" and "next 10" links
+			var $active = $scroller.find('a.active');
+			var $tens = Math.floor($pagect/10);
+			var $rpp = $(this).find('select[name=RPP]').val();
+			if($active.attr('start')&&$active.attr('start')>=10*$rpp) {
+				$(this).find('a.prev').parent().show();
+				var $maxLeft = -($tens*370);
+				var $offset = Math.floor((($active.attr('start')/10)/$rpp));
+				$scroller.css({'left':-($offset*370)+'px'});
+			}
+			if($active.attr('start')&&$active.attr('start')<10*$tens*$rpp) $(this).find('a.next').parent().show();
+		}
+		if($pagect > 1) {
+			$(this).animate({'opacity': 1});
+			$('tbody[start]').eq(0).show();
+		}
+	}
+	
+})
+ .on('change','div.pagination select[name=RPP]',function() {
+	var $pagination = $(this).closest('.pagination');
+	var $container = $pagination.closest('section.product_list');
+	var $start = ($(this).closest('.pagination').find('a[start].active').length>0)?$(this).closest('.pagination').find('a[start].active').attr('start'):0;
+	var $opts=$(this).closest('.pagination').find(':input').serializeArray().concat($container.find('#product-tabs').find(':input').serializeArray()).concat({'name':'mdl','value':PREFS.OPC_Version_Path+'doclib/show_product_list.mdl'},{"name":"RECORD_START","value":$start});
+	$container.find('#product-tabs').hide().end().find('.pagination').eq(1).hide().end().append('<div class="loading_placeholder"><img src="system/2011/images/spinning_ball.gif"></div>');
+	$container.load('ajax_jquery.iml',$opts,function() { 
+		initProductTabs();
+        if(PREFS.cXML_ID>0){
+            $(this).find('a:not([href*="#"])').each(function(){$(this).attr('href',$(this).attr('href')+'?cXML_ID='+PREFS.cXML_ID)});
+        }
+		$(this).find('.product_image').each(function(){
+			initImageSlides($(this));
+		});
+		$(this).find('.pagination').each(function() {
+			$(this).trigger('setup');
+		});
+	});
+
+
+}).on('click','div.pagination a[start]',function(e) {
+	e.preventDefault();
+	$(this).addClass('active').siblings().removeClass('active');
+	$(this).closest('.pagination').find('select[name=RPP]').trigger('change');
+	
+}).on('click','div.pagination .plusminus a',function(e) {
+	e.preventDefault();
+	$isNext = $(this).is('.next');
+	$(this).closest('.product_list').find('.pagination').each(function() {
+		var $pagenumber = $(this).find('.pagenumber');
+		var $scroller = $pagenumber.find('.scroller');
+		var $tens = Math.floor($scroller.find('a').length/10);
+		var $curLeft = (isNaN(parseFloat($scroller.css('left')))) ? 0 : parseFloat($scroller.css('left'));
+		var $maxLeft = -($tens*370);
+		if($isNext) { // next 10
+			$(this).find('.prev').parent().show();
+			$scroller.animate({'left':($curLeft-370)+'px'});
+			if($curLeft-370==$maxLeft) $(this).find('.next').parent().hide();
+		} else { // prev 10
+			$(this).find('.next').parent().show();
+			$scroller.animate({'left':($curLeft+370)+'px'});
+			if($curLeft+370==0) $(this).find('.prev').parent().hide();
+		}
+	})
+})
+	
+
+$('.pagination').each(function() { $(this).trigger('setup'); });
+	
+});

@@ -1,0 +1,285 @@
+
+#admin-dock{
+/*	background-image: url(images/Menu_Unselected.png);
+	background-repeat: repeat-x;*/
+	font-family: Arial,Helvetica,Geneva,Swiss,SunSans-Regular;
+	font-size: 10px;
+	line-height: normal;
+   color: black;
+	visibility: hidden;
+	height:39px;
+	left:0px;
+	z-index:100;
+	width:100%;
+	position:fixed;
+	bottom:0px;
+	text-align:center;
+   padding:0; margin:0;
+	white-space: nowrap;
+}
+*html #admin-dock { /*--IE6 Hack - Fixed Positioning to the Bottom--*/
+	position: absolute;
+	top:expression(eval(document.compatMode &&document.compatMode=='CSS1Compat') ?documentElement.scrollTop+(documentElement.clientHeight-this.clientHeight) : document.body.scrollTop +(document.body.clientHeight-this.clientHeight));
+}
+#admin-dock td{
+	font-family: Arial,Helvetica,Geneva,Swiss,SunSans-Regular;
+	font-size: 10px;
+	line-height: normal;
+   color: black;
+	white-space: nowrap;
+	padding:0; margin:0;
+}
+#admin-dock a{
+   font-family: Arial,Helvetica,Geneva,Swiss,SunSans-Regular;
+	font-size: 10px;
+	line-height: normal;
+   color: black;
+}
+#admin-dock-placeholder {
+	width:100%;
+	height:39px;
+}
+
+#admin-dock .spacer{
+  text-align:left;
+  height:39px;
+  background-image: url(images/Menu_Unselected.png);
+  background-repeat: repeat-x;  
+}
+#admin-dock .spacer .logo{
+	background-image: url(images/UI_logo.png);
+	background-repeat: no-repeat;
+	background-position: 10px 10px;
+	width: 150px; height:100%;
+}
+
+
+
+#admin-dock ul {
+	padding: 0; margin: 0;	
+	list-style: none;
+}	
+#admin-dock ul li.menu{
+	padding: 0; margin: 0;
+	color: black;
+	float: left;
+	height:39px;
+	cursor: pointer;
+	background-image: url(images/Menu_Unselected.png);
+	background-repeat: repeat-x;
+}
+
+#admin-dock ul li.menu.selected{
+	background-image: url(images/Menu_Selected.png);
+	background-repeat: repeat-x;
+}
+#admin-dock ul li.menu.mouseover{
+	background-image: url(images/Menu_Highlighted.png);
+	background-repeat: repeat-x;
+}
+
+#admin-dock ul li.menu .header{
+   height:auto;
+   margin:auto;
+	background: transparent;
+	padding: 8px; 
+   font-family: Arial,Helvetica,Geneva,Swiss,SunSans-Regular;
+	font-size: 10px;
+	line-height: normal;
+   color: black;
+}
+#admin-dock ul li.menu .header img{
+  visibility: hidden;
+  margin-left:5px;
+}
+#admin-dock ul li.menu.selected .header img{
+  visibility: visible;
+}
+
+#admin-dock .menu .subpanel{
+   cursor: default;
+   color: black;
+	position: absolute;
+	float: left;
+   z-index: -1;
+/*	width:253px; */
+	top:0px;
+	display: none;
+	overflow: hidden;	   
+	text-align:left;
+}
+#admin-dock .menu .subpanel .panel-header{
+   float: none;
+   margin:20px 8px 2px 14px; 
+	padding: 0px;
+	border-bottom: 1px solid black;
+	font-size: 11px;
+	font-weight: bold;
+}
+#admin-dock .menu .subpanel hr{
+	margin: 0px 0px 0px 0px;
+	height: 1px;
+}
+
+/*
+#admin-dock .menu .subpanel div.top{
+   padding: 0; margin: 0;
+	background-image: url(images/UI_Panel.png);
+	background-repeat: no-repeat;
+   height:20px;
+	float: left;
+}
+#admin-dock .menu .subpanel div.topright{
+   padding: 0; margin: 0;
+	background-image: url(images/UI_Panel.png);
+	background-repeat: no-repeat;
+	background-position: -233px 0px;
+   height:20px;
+	width:20px;
+	float:right;
+}
+*/
+#admin-dock .menu .subpanel div.main{  
+	margin: 0; padding: 0;
+	background-image: url(images/UI_Panel.png);
+	background-repeat: no-repeat;
+	background-position: 0px 0px;
+   float: left;
+ /*  padding: 20px 5px 0px 6px; margin: 0;*/
+}
+#admin-dock .menu .subpanel div.mainright{
+   padding: 0; margin: 0;
+	background-image: url(images/UI_Panel.png);
+	background-repeat: no-repeat;
+	background-position: -248px -0px;
+	width:20px;
+	float:left;
+}
+
+
+#admin-dock .menu .subpanel ul {
+  padding: 0px 0px 0px 6px;
+  margin: 0;
+/*	width:242px; */
+	list-style: none;
+	overflow: auto;
+}
+
+#admin-dock .menu .subpanel ul li{
+   cursor: pointer;   
+	padding:0; margin: 0px;
+	float: none;
+	white-space: nowrap;
+}
+#admin-dock .menu .subpanel .separator{
+	font-family: Arial,Helvetica,Geneva,Swiss,SunSans-Regular;
+	font-size: 1px;
+	line-height: normal;
+   color: black;
+   cursor: auto;
+	text-decoration: none;
+	color: black;
+	display:block;
+	padding: 1px 0px 0px 0px;
+	margin: 0px 8px 1px 8px;
+	border-bottom: 1px solid #cccccc;
+}
+#admin-dock .menu .subpanel ul li a{
+	font-family: Arial,Helvetica,Geneva,Swiss,SunSans-Regular;
+	font-size: 10px;
+	line-height: normal;
+   color: black;
+   cursor: pointer;   
+	text-decoration: none;
+	color: black;
+	display:block;
+	padding: 5px 8px 5px 8px;
+	margin: 0px;
+/*	width: 100%; */ 
+}
+#admin-dock .menu .subpanel ul li .dock-non-link{
+	font-family: Arial,Helvetica,Geneva,Swiss,SunSans-Regular;
+	font-size: 10px;
+	line-height: normal;
+   color: black;
+   cursor: auto;
+	text-decoration: none;
+	color: black;
+	display:block;
+	padding: 5px 8px 5px 8px;
+	margin: 0px;
+/*	width: 100%; */ 
+}
+#admin-dock .menu .subpanel ul li form input, #admin-dock .menu .subpanel ul li form{
+	font-family: Arial,Helvetica,Geneva,Swiss,SunSans-Regular;
+	font-size: 10px;
+	line-height: normal;
+   color: black;
+   cursor: auto;
+	text-decoration: none;
+	color: gray;
+	display:inline;
+	padding: 0px;
+	margin: 0px;
+/*	width: 100%; */ 
+}
+
+#admin-dock .menu .subpanel ul li.wip-alert a{color:#229922;}
+#admin-dock .menu .subpanel ul li.selected{
+   background-color: silver;
+	background-image: none;  /* IE bug: override background image from .menu.selected */
+}
+#admin-dock .menu .subpanel ul li.selected a, #admin-dock .menu .subpanel ul li.selected .dock-non-link{ 
+	color: white;
+}
+
+#admin-dock .menu .subpanel ul li .numeric{
+  display: inline;
+  text-align:right;
+  font-family: Arial,Helvetica,Geneva,Swiss,SunSans-Regular;
+  font-size: 10px;
+  line-height: normal;
+  color: black;
+  padding:0;
+  margin: 0;  
+}
+#admin-dock .menu .subpanel ul li.wip-alert .numeric{color:#229922;}
+#admin-dock .menu .subpanel ul li.selected .numeric{
+ color:white;
+}
+
+
+.admin_sub_menu{
+	padding:10px;	
+}
+.admin_sub_menu a.menuItem{
+   display: block;
+	font-size: 11px;
+	float: left;
+	background-image:  url(images/UI_submenus_display.png);
+	background-repeat: no-repeat;
+	width:166px; height: 41px;
+	margin: 0px 5px 5px 0px; 
+}
+.admin_sub_menu a.menuItem:hover{
+	background-image:  url(images/UI_submenus_hilight.png);
+}
+.admin_sub_menu a.menuItem div{
+   margin: 13px 5px 13px 5px; padding: 0px;
+}
+
+.admin_sub_menu_intro{
+	margin: 0px 0px 15px 0px;  padding:0px;
+}
+
+@media print {
+#admin-dock { display:none; }
+}
+
+#admin-dock .menu .subpanel ul li.pn_inactive a{
+  color: #ff7f00;   
+}
+
+a.menuItem.pn_inactive{
+  color: #ff7f00;
+}

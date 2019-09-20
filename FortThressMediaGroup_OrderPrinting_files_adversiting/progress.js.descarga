@@ -1,0 +1,76 @@
+var ProgressBarList=new Array();
+
+function ProgressBar(bar,stat,percent_only){
+  this.index=ProgressBarList.length;
+  ProgressBarList[this.index]=this;
+  this.totalBytes=1;
+  this.uploadedBytes=0;
+  this.statusEl=stat;
+  this.percent_only=percent_only;
+  this.progressEl=bar;
+  this.waiting=1;
+  this.done=0;
+  this.waitTimeout=10;
+  this.abortProgress=false;
+  var instance=this;
+//  this.timeOut=window.setTimeout("ProgressBarList["+this.index+"].refresh('');",500);
+  ajaxCallFunction('ajax.iml?mdl=progress.aj&'+Date(),function(sc,st,rt,rxml){ instance.update(rxml); });
+}
+
+ProgressBar.prototype.abort=function(){
+  this.abortProgress=true;
+  window.clearTimeout(this.timeOut);
+}
+ProgressBar.prototype.update=function(rxml){
+   if(this.abortProgress) return;
+   var status=getTagValue(rxml,'status');
+   if(status=='wait'){
+     this.waiting=1;
+     this.waitTimeout--;
+     this.done=0;
+     if(this.statusEl) 
+	   if(this.percent_only) this.statusEl.innerHTML="0%";
+	   else this.statusEl.innerHTML="Waiting...";
+     if(this.progressEl) this.progressEl.style.width="0px";
+   }else if(status=='done'){
+     this.waiting=0; this.done=1;
+     if(this.statusEl)
+	   if(this.percent_only) this.statusEl.innerHTML="100%";
+	   else this.statusEl.innerHTML="Done!";
+     if(this.progressEl) this.progressEl.style.width="100%";
+   }else{
+     this.totalBytes=getTagValue(rxml,'total')*1;
+     this.uploadedBytes=getTagValue(rxml,'current')*1;
+     if(this.totalBytes==0)this.totalBytes=1;
+     if(this.uploadedBytes>this.totalBytes) this.uploadedBytes=this.totalBytes;     
+     var percent=Number(this.uploadedBytes/this.totalBytes*100).toFixed(1);
+     if(this.statusEl)
+  	   if(this.percent_only) this.statusEl.innerHTML=percent+"%";
+	   else{
+        var dis=this.totalBytes;
+        var suf="Bytes";
+        if(dis>1024){
+          dis=Number(dis/1024).toFixed(1);
+          suf="KB";          
+        }
+        if(dis>1024){
+          dis=Number(dis/1024).toFixed(1);
+          suf="MB";          
+        }
+        this.statusEl.innerHTML=percent+"% of "+dis+" "+suf;
+       }
+     percent=Number(percent).toFixed();
+     if(this.progressEl) this.progressEl.style.width=percent+"%";
+   }
+   if(!this.done&&this.waitTimeout>0){
+      this.timeOut=window.setTimeout("ProgressBarList["+this.index+"].refresh('"+status+"');",500);
+  //  this.refresh(status);
+   }  
+}
+
+ProgressBar.prototype.refresh=function(status){
+   var instance=this;
+   ajaxCallFunction('ajax.iml?mdl=progress.aj&status='+status+'&'+Date(),function(sc,st,rt,rxml){ instance.update(rxml); });
+}
+
+

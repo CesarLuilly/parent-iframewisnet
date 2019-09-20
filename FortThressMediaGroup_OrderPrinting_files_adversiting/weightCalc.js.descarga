@@ -1,0 +1,593 @@
+var WeightCalcObj=null;
+function CreateWeightCalc(reftype,refid,container,form){
+  WeightCalcObj=new WeightCalc(reftype,refid,container,form);
+}
+function WeightCalc(reftype,refid,container,form){
+  this.form=form;
+  this.weightInfoAvailable=false;
+  this.content=container; 
+  this.refType=reftype;
+  this.refID=refid;  
+  this.data=null;
+  this.res=null;
+  this.showWeight();
+  this.paperWeight=0;
+  this.onUpdate=null;
+}
+
+
+WeightCalc.prototype.processXML=function(xml){  
+  var x, y, z, zz;
+  var i, j, k, kk;
+  var rowIndex;
+  this.data=new Object();
+  this.data.WeightID="";
+  this.data.baseWeight=0;
+  this.data.baseQty=1;
+  this.data.packagingWeight=0;
+  this.data.packagingQty=1;
+  this.data.multiplierQuestion=0;
+  x=xml.getElementsByTagName('base');
+  if(x.length==1){
+    this.data.WeightID=getTagValue(x[0],'id');
+    this.data.baseWeight=Number(getTagValue(x[0],'weight'));
+    this.data.baseQty=Number(getTagValue(x[0],'qty'));    
+    this.data.multiplierQuestion=Number(getTagValue(x[0],'multiplier'));
+    this.weightInfoAvailable=true;    
+  }
+  x=xml.getElementsByTagName('packaging');
+  if(x.length==1){
+    this.data.packagingWeight=Number(getTagValue(x[0],'weight'));
+    this.data.packagingQty=Number(getTagValue(x[0],'qty'));    
+  }
+  this.DEBUG=(getTagValue(xml,'debug')=="1"?true:false);
+
+  this.data.question=new Array();    
+  y=xml.getElementsByTagName('question');
+  for(j=0;j<y.length;j++){
+    this.data.question[j]=new Object();
+    this.data.question[j].id1=y[j].getAttribute('qid1');
+    this.data.question[j].id2=y[j].getAttribute('qid2');
+    this.data.question[j].id3=y[j].getAttribute('qid3');
+    this.data.question[j].option=new Array();
+    z=y[j].getElementsByTagName('option');
+    for(k=0;k<z.length;k++){        
+      this.data.question[j].option[k]=new Object();
+      this.data.question[j].option[k].id=z[k].getAttribute('id');
+      this.data.question[j].option[k].choice1=getTagValue(z[k],'choice1');
+      this.data.question[j].option[k].choice2=getTagValue(z[k],'choice2');
+      this.data.question[j].option[k].choice3=getTagValue(z[k],'choice3');
+      this.data.question[j].option[k].option1=getTagValue(z[k],'option1');
+      this.data.question[j].option[k].option2=getTagValue(z[k],'option2');
+      this.data.question[j].option[k].option3=getTagValue(z[k],'option3');
+      this.data.question[j].option[k].addition=Number(getTagValue(z[k],'addition'));
+    }
+  }
+
+  this.data.pack=new Object();    
+  y=xml.getElementsByTagName('pack');
+  if(y.length==1){
+    this.data.pack.id1=y[0].getAttribute('qid1');
+    this.data.pack.id2=y[0].getAttribute('qid2');
+    this.data.pack.id3=y[0].getAttribute('qid3');
+    this.data.pack.option=new Array();
+    z=y[0].getElementsByTagName('option');
+    for(k=0;k<z.length;k++){        
+      this.data.pack.option[k]=new Object();
+      this.data.pack.option[k].id=z[k].getAttribute('id');
+      this.data.pack.option[k].choice1=getTagValue(z[k],'choice1');
+      this.data.pack.option[k].choice2=getTagValue(z[k],'choice2');
+      this.data.pack.option[k].choice3=getTagValue(z[k],'choice3');
+      this.data.pack.option[k].option1=getTagValue(z[k],'option1');
+      this.data.pack.option[k].option2=getTagValue(z[k],'option2');
+      this.data.pack.option[k].option3=getTagValue(z[k],'option3');
+      this.data.pack.option[k].weight=Number(getTagValue(z[k],'weight'));
+      this.data.pack.option[k].qty=Number(getTagValue(z[k],'qty'));      
+    }
+  }
+  
+
+  if(this.editMode){ //this.showForm();
+     SHOW_PRICING_EDITOR=false;}
+  else this.processWeight();
+}  
+
+WeightCalc.prototype.showWeight=function(){
+  outstanding_ajax_calls++;
+  var instance=this;
+  this.editMode=false;
+  var params=new AjaxFormContent();
+  params.addNameValue("DEBUG",1);
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("mdl",PREFS.OPC_Version_Path+"weightCalc/product.aj");  
+  if(PREFS.cXML_ID&&PREFS.cXML_ID>0) params.addNameValue('cXML_ID',PREFS.cXML_ID);
+  ajaxPostFunction(params,function(sc,st,rt,rxml){    
+        instance.res=new HTMLParse(getTagValue(rxml,'resource'));      
+        instance.processXML(rxml.getElementsByTagName('product')[0]);
+        outstanding_ajax_calls--;
+        if(outstanding_ajax_calls==0&&function_waiting_for_ajax!=null){function_waiting_for_ajax();}
+      },
+   "ajax.iml");
+}
+
+WeightCalc.prototype.processWeight=function(){
+  var x, y, z;
+  var i, j, k;
+  var rowIndex;
+  var instance=this;
+  this.content.setAttribute("id","weight");  
+  this.content.innerHTML="";
+  if(this.weightInfoAvailable){
+    var ct=new HTMLParse(this.content);
+    if(this.DEBUG){
+      ct.appendObject(this.res.weight[0],true); 
+      this.data.fullBoxCount=ct.weight[0].fullboxcount[0].node;
+      this.data.fullBoxWeight=ct.weight[0].fullboxweight[0].node;
+      this.data.partialBoxWeight=ct.weight[0].partialboxweight[0].node;
+      this.data.total=ct.weight[0].total[0].node;
+    }
+    this.data.fullBoxCountInput=ce('input'); this.data.fullBoxCountInput.name="ShippingFullBoxCount"; this.data.fullBoxCountInput.type="hidden";
+    this.form.appendChild(this.data.fullBoxCountInput);
+    this.data.fullBoxWeightInput=ce('input'); this.data.fullBoxWeightInput.name="ShippingFullBoxWeight"; this.data.fullBoxWeightInput.type="hidden";
+    this.form.appendChild(this.data.fullBoxWeightInput);
+    this.data.partialBoxWeightInput=ce('input'); this.data.partialBoxWeightInput.name="ShippingPartialBoxWeight"; this.data.partialBoxWeightInput.type="hidden";
+    this.form.appendChild(this.data.partialBoxWeightInput);
+    this.setupForm();      
+    if(this.form) this.recalculateForm();
+  }
+}
+
+WeightCalc.prototype.loading=function(htmlobj){
+  htmlobj.node.innerHTML="";
+  htmlobj.appendObject(this.res.loading[0],true);
+}
+
+WeightCalc.prototype.setupForm=function(){
+  var instance=this; 
+  var i;
+  var inputs=this.form.getElementsByTagName('input');
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('Question_ID')>0||inputs[i].getAttribute('isQty')>0){
+      if(inputs[i].type=="text")  Evt.addEventListener(inputs[i],"change",function(event){var ev=new Evt(event);instance.recalculateForm(ev.source);},false);
+      else  Evt.addEventListener(inputs[i],"click",function(event){var ev=new Evt(event); instance.recalculateForm(ev.source);},false);
+    }
+  }    
+  inputs=this.form.getElementsByTagName('select');
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('Question_ID')>0||inputs[i].getAttribute('isQty')>0){
+      Evt.addEventListener(inputs[i],"change",function(event){var ev=new Evt(event);instance.recalculateForm(ev.source);},false);
+    }
+  }    
+}
+
+
+
+
+/******************  Calculate weight  ***********************/
+WeightCalc.prototype.recalculateForm=function(obj){
+  var options=new Array();
+  var qty=0;
+  var multiplier=1;
+  var index=0;
+  var i;
+  var inputs=this.form.getElementsByTagName('input');
+	var QTY_FOUND=false;
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('Question_ID')>0&&inputs[i].checked){
+      options[index]=new Object();
+      options[index].id=inputs[i].getAttribute('Question_ID');
+      options[index].choice=inputs[i].value.replace(/\s*$/,'');    
+      options[index].option=inputs[i].getAttribute('data-option_id');
+      options[index].type=inputs[i].type.toLowerCase();
+      index++;
+    } else if(inputs[i].getAttribute('Question_ID')>0&&inputs[i].getAttribute('isNumeric')>0){
+      options[index]=new Object();
+      options[index].id=inputs[i].getAttribute('Question_ID');
+      options[index].choice=inputs[i].value.replace(/\s*$/,'');
+      options[index].option=inputs[i].getAttribute('data-option_id');
+      options[index].type=inputs[i].type.toLowerCase();
+      index++;    
+    }
+    if(inputs[i].getAttribute('isQty')>0&&!QTY_FOUND&&(inputs[i].type!="radio"||inputs[i].checked)){
+      if(!isNaN(Number(inputs[i].value))) {
+				qty=Number(inputs[i].value);
+				QTY_FOUND=true;
+			}
+    }
+    if(inputs[i].getAttribute('Question_ID')>0&&inputs[i].getAttribute('Question_ID')==this.data.multiplierQuestion){
+      multiplier=Number(inputs[i].value)*1;      
+    }
+  }    
+  inputs=this.form.getElementsByTagName('select');
+  for(i=0; i<inputs.length; i++){
+    if(inputs[i].getAttribute('Question_ID')>0){
+      options[index]=new Object();
+      options[index].id=inputs[i].getAttribute('Question_ID');
+      options[index].choice=inputs[i].options[inputs[i].selectedIndex].value.replace(/\s*$/,'');   
+      options[index].option=inputs[i].options[inputs[i].selectedIndex].getAttribute('data-option_id');   
+      options[index].type='select'; 
+      index++;
+    }
+    if(inputs[i].getAttribute('isQty')>0&&!QTY_FOUND){
+      if(!isNaN(Number(inputs[i].value))&&inputs[i].options[inputs[i].selectedIndex]) {
+				qty=Number(inputs[i].options[inputs[i].selectedIndex].value);
+				QTY_FOUND=true;
+			}
+    }
+    if(inputs[i].getAttribute('Question_ID')>0&&inputs[i].getAttribute('Question_ID')==this.data.multiplierQuestion){
+      multiplier=Number(inputs[i].options[inputs[i].selectedIndex].value)*1;      
+    }        
+  }  
+  if(multiplier<1) multiplier=1;  
+  this.calculateWeight(qty*multiplier,options);
+}
+
+WeightCalc.prototype.calculateWeight=function(qty,options){
+  this.paperWeight=0;
+  if(this.DEBUG){
+    this.data.fullBoxCount.innerHTML=0;
+    this.data.fullBoxWeight.innerHTML=0;
+    this.data.partialBoxWeight.innerHTML=0;
+    this.data.total.innerHTML=0;
+  }  
+  var tmpWeight;
+  var productWeight=new Array(); 
+  var boxWeight=0; var fullBoxQty=1; 
+  var fullBoxWeight=0; var fullBoxes=0; var partialBoxWeight=0; var partialBoxQty=0;
+  productWeight[0]=this.data.baseWeight; productWeight[1]=this.data.baseQty;
+  for(i=0; i<this.data.question.length; i++){  
+    tmpWeight=this.getWeight(this.data.question[i],options,false);
+    if(tmpWeight) productWeight[0]+=tmpWeight[0];  
+  }  
+  this.paperWeight=qty>0?(productWeight[1]<=0?0:qty/productWeight[1]*productWeight[0]):0;
+  tmpWeight=this.getWeight(this.data.pack,options,true);
+  if(tmpWeight){
+    fullBoxQty=tmpWeight[1];            
+    boxWeight=tmpWeight[0];
+  }else{
+    fullBoxQty=this.data.packagingQty;
+    boxWeight=this.data.packagingWeight;
+  }
+  fullBoxWeight=qty>=fullBoxQty?boxWeight+(productWeight[1]<=0?0:fullBoxQty/productWeight[1]*productWeight[0]):0;
+  partialBoxQty=qty;
+  while(partialBoxQty>=fullBoxQty&&fullBoxQty>0){ partialBoxQty-=fullBoxQty; fullBoxes++; }
+  partialBoxWeight=partialBoxQty>0?boxWeight+(productWeight[1]<=0?0:partialBoxQty/productWeight[1]*productWeight[0]):0;
+
+  if(typeof this.data.fullBoxCountInput!="undefined") {
+		this.data.fullBoxCountInput.value=fullBoxes;
+		this.data.fullBoxWeightInput.value=fullBoxWeight;
+	}
+	if(typeof this.data.partialBoxWeightInput!="undefined") this.data.partialBoxWeightInput.value=partialBoxWeight;
+  if(this.DEBUG){
+    this.data.fullBoxCount.innerHTML=fullBoxes;
+    this.data.fullBoxWeight.innerHTML=fullBoxWeight;
+    this.data.partialBoxWeight.innerHTML=partialBoxWeight;
+    this.data.total.innerHTML=fullBoxes*fullBoxWeight+partialBoxWeight;
+  }  
+  if(this.onUpdate!=null) this.onUpdate(this.paperWeight,options);
+}
+
+
+WeightCalc.prototype.getWeight=function(question,options,pack){
+  var result=new Array();
+  result[0]=0; result[1]=0;
+  var value1=""; var value2=""; var value3="";
+  var i,j,process,match,numbericWeightValue;  
+  var option=null;
+  if(question.option)for(i=0; i<question.option.length; i++){
+     numericWeightValue=1;
+     option=question.option[i];
+     process=true;
+     if(question.id1>0){
+       match=false;
+       for(j=0;j<options.length;j++){
+         if(options[j].id==question.id1&&((option.option1!=""&&option.option1==options[j].option)||option.choice1==options[j].choice.replace(/\s*$/,''))){   match=true; break; }       
+//         if(options[j].id==question.id1&&option.choice1==""&&options[j].type=="text"){match=true; numericWeightValue=Number(options[j].choice); break;} 
+            // match numeric input fields
+       }
+       if(!match) process=false;
+     }
+     if(process&&question.id2>0){
+       match=false;
+       for(j=0;j<options.length;j++){
+         if(options[j].id==question.id2&&((option.option2!=""&&option.option2==options[j].option)||option.choice2==options[j].choice.replace(/\s*$/,''))){   match=true; break; }         
+       }
+       if(!match) process=false;
+     }
+     if(process&&question.id3>0){
+       match=false;
+       for(j=0;j<options.length;j++){
+         if(options[j].id==question.id3&&((option.option3!=""&&option.option3==options[j].option)||option.choice3==options[j].choice.replace(/\s*$/,''))){   match=true; break; }         
+       }
+       if(!match) process=false;
+     }
+     if(process){
+       if(pack){
+         result[0]=option.weight; result[1]=option.qty;
+         return result;
+       }else{
+         result[0]=option.addition; result[1]=this.data.baseQty;
+         return result;
+       }
+     }
+  }
+  return null;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/**********************************************   Editor ******************************************/
+WeightCalc.prototype.open=function(editorDiv){
+  this.content=editorDiv;
+  this.editMode=true;
+  this.showForm(); 
+}
+
+
+/******************  Weight Editor  ***********************/
+
+WeightCalc.prototype.showForm=function(){
+  this.content.setAttribute("id","weightcalcform");
+  if(!this.data){
+    return;
+  }  
+  var row, i,j,k,x;
+  var weightOptions;
+  var optionTitle, choiceTitle, oldOptionTitle;
+  var instance=this;
+  var editor=new HTMLParse(this.content);  
+  this.loading(editor);
+  var params=new AjaxFormContent();  
+  params.addNameValue("DEBUG",1);
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("Weight_ID",this.data.WeightID);     
+  params.addNameValue("mdl","weightCalc/form.aj");  
+  ajaxPostFunction(params,function(sc,st,rt,rxml){
+     instance.processForm(rt);     
+  }, "ajax.iml" );     
+}
+WeightCalc.prototype.processForm=function(rt){
+    this.content.innerHTML=rt;
+    this.processBaseSettings();
+    this.processProduct();
+    this.processPackaging();
+}
+
+WeightCalc.prototype.processBaseSettings=function(){
+    var instance=this;
+    var editor=new HTMLParse(this.content);
+    editor.basesettings[0].button[0].node.onclick=function(){instance.updateBaseSettings();};
+    //setMouseOver(editor.basesettings[0].button[0].node,"black-sm");
+    if(editor.weightCalcProduct[0].content[0].weightQuestion){
+      for(var i=0;i<editor.weightCalcProduct[0].content[0].weightQuestion.length;i++){
+        if(editor.weightCalcProduct[0].content[0].weightQuestion[i].content[0].wcQty){
+          for(var j=0;j<editor.weightCalcProduct[0].content[0].weightQuestion[i].content[0].wcQty.length;j++){
+            editor.weightCalcProduct[0].content[0].weightQuestion[i].content[0].wcQty[j].node.innerHTML=this.data.baseQty;
+          }
+        }
+      }
+    }
+}
+WeightCalc.prototype.processProduct=function(){
+    var instance=this;
+    var editor=new HTMLParse(this.content);
+    if(editor.weightCalcProduct[0].content[0].weightQuestion){
+      for(var i=0;i<editor.weightCalcProduct[0].content[0].weightQuestion.length;i++){
+        this.setupQuestion(editor.weightCalcProduct[0].content[0].weightQuestion[i],false);
+      }
+    }
+    if(editor.weightCalcProduct[0].addQuestion[0].questions[0].node.options.length==1){
+      editor.weightCalcProduct[0].addQuestion[0].node.style["display"]="none";
+    }else{
+      editor.weightCalcProduct[0].addQuestion[0].button[0].node.onclick=function(){instance.addQuestion(false);};
+    }
+    //setMouseOver(editor.weightCalcProduct[0].addQuestion[0].button[0].node,"green-sm");  
+}
+WeightCalc.prototype.processPackaging=function(){
+    var instance=this;
+    var editor=new HTMLParse(this.content);
+    if(editor.weightCalcPackaging[0].content[0].weightQuestion){
+      this.setupQuestion(editor.weightCalcPackaging[0].content[0].weightQuestion[0],false,true);
+    }  
+    if(editor.weightCalcPackaging[0].addQuestion[0].questions[0].node.options.length==1){
+      editor.weightCalcPackaging[0].addQuestion[0].node.style["display"]="none";
+    }else{
+      editor.weightCalcPackaging[0].addQuestion[0].button[0].node.onclick=function(){instance.addQuestion(true);};
+    }
+    //setMouseOver(editor.weightCalcPackaging[0].addQuestion[0].button[0].node,"green-sm");
+}
+
+
+WeightCalc.prototype.updateBaseSettings=function(set){
+  var editor=new HTMLParse(this.content);
+  var params=new AjaxFormContent();
+  params.addNameValue("mdl","weightCalc/update.aj");
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID);
+  params.addNameValue("Weight_ID",this.data.WeightID);     
+  params.addNameValue("DEBUG",1);
+  params.fromNode(editor.basesettings[0].node);
+  this.loading(editor.basesettings[0]);
+  var instance=this;
+  ajaxPostFunction(params,function(sc,st,rt,rxml){ 
+        editor.basesettings[0].node.innerHTML=getTagValue(rxml,'formres');
+        instance.processXML(rxml.getElementsByTagName('product')[0]);  
+        instance.processBaseSettings();     
+  },"ajax.iml");
+}
+
+WeightCalc.prototype.getQuestionBlockByID=function(id,pack){
+  var editor=new HTMLParse(this.content);
+  var section=null
+  if(pack){ if(editor.weightCalcPackaging) section=editor.weightCalcPackaging[0];
+  }else{ if(editor.weightCalcProduct) section=editor.weightCalcProduct[0];
+  }
+  if(!section) return null;
+  if(!section.content[0].weightQuestion) return null;
+  for(var i=0; i<section.content[0].weightQuestion.length; i++){
+    if(section.content[0].weightQuestion[i].node.getAttribute('Question_ID')==id){ 
+         return new HTMLParse(section.content[0].weightQuestion[i].node);
+    }
+  }
+  return null;
+}
+WeightCalc.prototype.setupQuestion=function(htmlobj,isopen,pack){
+  var instance=this;
+  if(isopen){
+    htmlobj.bump[0].node.onclick=function(){instance.collapseQuestion(this.getAttribute('Question_ID'),pack);};
+    htmlobj.node.className="selectedline";
+  }else{
+    htmlobj.bump[0].node.onclick=function(){instance.expandQuestion(this.getAttribute('Question_ID'),pack);};
+    htmlobj.node.className="unselectedline";
+  }
+  if(!pack&&htmlobj.content[0].wcQty) for(var i=0; i<htmlobj.content[0].wcQty.length; i++) htmlobj.content[0].wcQty[i].node.innerHTML=this.data.baseQty;
+  htmlobj.button[0].node.onclick=function(){instance.deleteQuestion(this.getAttribute('Question_ID'),pack);};
+  htmlobj.button[1].node.onclick=function(){instance.updateQuestion(this.getAttribute('Question_ID'),pack);};
+  htmlobj.button[2].node.onclick=function(){instance.clearQuestion(this.getAttribute('Question_ID'),pack);};
+  //setMouseOver(htmlobj.button[0].node,"red-sm");    
+  //setMouseOver(htmlobj.button[1].node,"ff");    
+  //setMouseOver(htmlobj.button[2].node,"red-sm");    
+  
+}
+
+WeightCalc.prototype.addQuestion=function(pack){
+  var instance=this;
+  var editor=new HTMLParse(this.content);
+  var section=null;
+  if(pack) section=editor.weightCalcPackaging[0];
+  else section=editor.weightCalcProduct[0];  
+  var input=section.addQuestion[0].questions[0].node;
+  if(input.selectedIndex==0) return;
+  var val=input.options[input.selectedIndex].value.split(":");
+  input.removeChild(input.options[input.selectedIndex]);
+  input.selectedIndex=0;
+  if(input.options.length==1||pack){
+    section.addQuestion[0].node.style["display"]="none";
+  }
+  var params=new AjaxFormContent();
+  params.addNameValue("DEBUG",1);
+  params.addNameValue("PACKAGING",pack?1:0);
+  params.addNameValue("Ref_Type",this.refType);
+  params.addNameValue("Ref_ID",this.refID); 
+  params.addNameValue("Q1_ID",val[0]?val[0]:"");    
+  params.addNameValue("Q2_ID",val[1]?val[1]:"");    
+  params.addNameValue("Q3_ID",val[2]?val[2]:"");       
+  params.addNameValue("Weight_ID",this.data.WeightID);     
+  params.addNameValue("mdl","weightCalc/addQuestion.aj");  
+  ajaxPostFunction(params,function(sc,st,rt,rxml){ 
+         var question=new HTMLParse(rt);
+         section.content[0].appendObject(question.weightQuestion[0]);
+         instance.setupQuestion(question.weightQuestion[0],true,pack);
+         var quest=question.weightQuestion[0].content[0];
+         instance.setupOption(quest,pack);
+       }
+    ,"ajax.iml");   
+
+}
+WeightCalc.prototype.expandQuestion=function(qid,pack){
+  var instance=this;
+  var val=qid.split(":");
+  var quest=this.getQuestionBlockByID(qid,pack);
+  this.loading(quest.content[0]);
+  this.setupQuestion(quest,true,pack);
+  if(quest){
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("PACKAGING",pack?1:0);      
+    params.addNameValue("Q1_ID",val[1]?val[1]:"");    
+    params.addNameValue("Q2_ID",val[2]?val[2]:"");    
+    params.addNameValue("Q3_ID",val[3]?val[3]:"");            
+    params.addNameValue("Weight_ID",this.data.WeightID);     
+    params.addNameValue("mdl","weightCalc/listOptions.aj");  
+    ajaxPostFunction(params,function(sc,st,rt,rxml){  
+      quest.content[0].node.innerHTML=rt; var editor=new HTMLParse(quest.content[0].node);    
+      instance.setupOption(editor,pack)
+    }
+    ,"ajax.iml");  
+  }      
+}
+WeightCalc.prototype.collapseQuestion=function(qid,pack){  
+  var quest=this.getQuestionBlockByID(qid,pack);
+  this.setupQuestion(quest,false,pack);
+}
+WeightCalc.prototype.deleteQuestion=function(qid,pack){
+  var instance=this;
+  var val=qid.split(":");
+  var quest=this.getQuestionBlockByID(qid,pack);
+  if(quest&&confirm("You are about to delete weight information. This action cannot be undone.  Do you want to continue?")){
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("PACKAGING",pack?1:0);  
+    params.addNameValue("Q1_ID",val[1]?val[1]:"");    
+    params.addNameValue("Q2_ID",val[2]?val[2]:"");    
+    params.addNameValue("Q3_ID",val[3]?val[3]:"");            
+    params.addNameValue("mdl","weightCalc/deleteQuestion.aj");  
+    ajaxPostFunction(params,function(sc,st,rt,rxml){ 
+        var editor=new HTMLParse(instance.content);
+        if(pack){
+          editor.weightCalcPackaging[0].node.innerHTML=getTagValue(rxml,'formres');
+          instance.processPackaging();     
+        }else{
+          editor.weightCalcProduct[0].node.innerHTML=getTagValue(rxml,'formres');
+          instance.processProduct();     
+        }
+     }
+    ,'ajax.iml');  
+  }
+}
+
+
+WeightCalc.prototype.setupOption=function(htmlobj,pack){
+  if(htmlobj.wcQty&&!pack)for(var i=0; i<htmlobj.wcQty.length; i++) htmlobj.wcQty[i].node.innerHTML=this.data.baseQty;
+}
+WeightCalc.prototype.updateQuestion=function(qid,pack){
+  var option=this.getQuestionBlockByID(qid,pack);
+  var instance=this;
+  if(option){
+    var val=qid.split(":");
+    var params=new AjaxFormContent();
+    params.addNameValue("DEBUG",1);  
+    params.addNameValue("Ref_Type",this.refType);
+    params.addNameValue("Ref_ID",this.refID);
+    params.addNameValue("PACKAGING",pack?1:0);    
+    params.addNameValue("Q1_ID",val[1]?val[1]:"");    
+    params.addNameValue("Q2_ID",val[2]?val[2]:"");    
+    params.addNameValue("Q3_ID",val[3]?val[3]:"");            
+    params.fromNode(option.content[0].node)
+    params.addNameValue("mdl","weightCalc/updateQuestion.aj");  
+    this.loading(option.content[0]);
+    ajaxPostFunction(params,function(sc,st,rt,rxml){  
+      option.content[0].node.innerHTML=rt; var editor=new HTMLParse(option.content[0].node);    
+      instance.setupOption(editor,pack);
+     }
+     ,"ajax.iml");  
+  }      
+}
+WeightCalc.prototype.clearQuestion=function(qid,pack){
+  var quest=this.getQuestionBlockByID(qid,pack); 
+  if(quest&&quest.content[0].wcAddition) for(var i=0; i<quest.content[0].wcAddition.length; i++)quest.content[0].wcAddition[i].node.value=0;
+  if(quest&&quest.content[0].wcQty) for(var i=0; i<quest.content[0].wcQty.length; i++)quest.content[0].wcQty[i].node.value=this.data.packagingQty?this.data.packagingQty:1;
+}

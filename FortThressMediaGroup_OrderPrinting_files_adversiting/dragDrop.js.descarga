@@ -1,0 +1,135 @@
+function DragDropListObject(element,func){
+  var x,i,j;
+  this.debug=false;
+  this.isDragging=false;
+  this.listContainer=element;
+//  this.listContainer.dragDropObject=this;
+  if(func) this.onDragEnd=func;
+  else this.onDragEnd=new Function();
+
+  this.dragList=new Array();
+  x= this.listContainer.childNodes;
+  var instance=this;
+  for(i=0; i<x.length; i++){
+    if(x[i].nodeType==1){
+      j=this.dragList.length;
+      this.dragList[j]=new DragObject(x[i]);      
+      this.dragList[j].onDragStart=function(){instance.dragStart(this.container);}      
+      this.dragList[j].onDrag=function(p,o){instance.drag(o);}
+      this.dragList[j].onDragEnd=function(){instance.dragEnd();}      
+    }    
+  }
+}
+
+DragDropListObject.prototype.dragStart=function(item){
+  if(!this.isDragging){
+    this.nowMoving=item;
+    var h=this.nowMoving.offsetHeight;
+    var w=this.nowMoving.offsetWidth;
+    this.moveStyle=new Object();
+    this.moveStyle.position=this.nowMoving.style["position"];
+    this.moveStyle.width=this.nowMoving.style["width"];
+    this.moveStyle.height=this.nowMoving.style["height"];
+
+    this.placeHolder=ce('div');
+    this.placeHolder.className="dd-place-holder";
+    this.listContainer.insertBefore(this.placeHolder,this.nowMoving);
+    this.nowMoving.style["position"]="absolute";
+    this.placeHolder.appendChild(this.nowMoving);
+    DHTML.setElementSize(this.nowMoving,w,h);
+    DHTML.setElementSize(this.placeHolder,w,h);
+    this.isDragging=true;
+  }
+}
+
+
+DragDropListObject.prototype.dragEnd=function(){
+  if(this.nowMoving&&this.placeHolder){
+    this.nowMoving.style["position"]=this.moveStyle.position;
+    this.nowMoving.style["width"]=this.moveStyle.width;
+    this.nowMoving.style["height"]=this.moveStyle.height;    
+    this.nowMoving.style["left"]="";
+    this.nowMoving.style["top"]="";        
+    this.listContainer.insertBefore(this.nowMoving,this.placeHolder);
+    this.listContainer.removeChild(this.placeHolder);
+    this.placeHolder=null;
+    this.nowMoving=null;
+    this.moveStyle=null;
+  }    
+  this.onDragEnd();
+  this.isDragging=false;
+}
+
+DragDropListObject.prototype.drag=function(offset){
+  var pOffset, sib, dif;
+  if(this.placeHolder){
+    pOffset=new Geometry.offsetBox(this.placeHolder);
+    dif=offset.upperLeft.minus(pOffset.upperLeft).y;
+    if(dif<0){
+      sib=this.placeHolder.previousSibling;
+      while(sib&&sib.nodeType!=1) sib=sib.previousSibling;
+      if(sib&&sib.offsetHeight/2+3<-dif) this.listContainer.insertBefore(this.placeHolder,sib); 
+    }else{
+      sib=this.placeHolder.nextSibling;
+      while(sib&&sib.nodeType!=1) sib=sib.nextSibling;
+      if(sib&&sib.offsetHeight/2+3<dif) this.listContainer.insertBefore(sib,this.placeHolder); 
+    }
+  }
+}
+
+function DragDropObject(element,group){
+  var x,i,j;
+  this.debug=false;
+  this.group=group;
+  this.element=element;
+  this.listContainer=element.parent;
+  var instance=this;
+  this.dragObj=new DragObject(this.element);      
+      this.dragObj.onDragStart=function(){instance.dragStart(this.container);}      
+      this.dragObj.onDrag=function(p,o){instance.drag();}
+      this.dragObj.onDragEnd=function(){instance.dragEnd();}      
+
+}
+
+DragDropObject.prototype.dragStart=DragDropListObject.prototype.dragStart;
+DragDropObject.prototype.drag=function(){
+  this.dropTarget=null;
+  for(var i=0; i<DragDropTargetList.length; i++){
+    if(DragDropTargetList[i].group==this.group){
+      if( Geometry.offsetBox(DragDropTargetList[i].element).inside(this.dragObj.dragCoordinate)){
+        this.dropTarget=DragDropTargetList[i];
+        DragDropTargetList[i].highlight(true);
+      }else{
+        DragDropTargetList[i].highlight(false);
+      }
+    }
+  }
+}
+DragDropObject.prototype.dragEnd=function(){
+  if(this.dragTarget){
+    this.dragTarget.highlight(false);
+    this.dragTarget.onDrop(this);
+    this.dragTarget=null;
+  }  
+  if(this.nowMoving&&this.placeHolder){
+    this.nowMoving.style["position"]=this.moveStyle.position;
+    this.nowMoving.style["width"]=this.moveStyle.width;
+    this.nowMoving.style["height"]=this.moveStyle.height;    
+    this.nowMoving.style["left"]="";
+    this.nowMoving.style["top"]="";        
+    this.listContainer.insertBefore(this.nowMoving,this.placeHolder);
+    this.listContainer.removeChild(this.placeHolder);
+    this.placeHolder=null;
+    this.nowMoving=null;
+    this.moveStyle=null;
+  }    
+}
+
+var DragDropTargetList=new Array();
+
+ function DragDropTarget(element,group,func){
+   this.element=element;
+   this.group=group;
+   if(func) this.onDrop=func;
+   else this.onDrop=new Function();
+ }

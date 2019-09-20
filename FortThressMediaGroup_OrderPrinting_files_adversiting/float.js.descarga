@@ -1,0 +1,55 @@
+function floatingObject(obj, x,y){
+  this.div=obj;
+  this.x=x;
+  this.y=y;
+  var instance=this;
+  Evt.addEventListener(window,"scroll",function(){instance.scroll();},false);
+  this.start();
+}
+
+floatingObject.prototype.setPos=function(x,y){
+  this.x=x; this.y=y;
+  this.start();
+}
+
+floatingObject.prototype.scroll=function(){  
+  if(this.canScroll){
+  var oh=this.div.offsetHeight;
+  var ow=this.div.offsetWidth;
+  if(window.pageXOffset){
+    var minx=window.pageXOffset;
+    var miny=window.pageYOffset;
+    var maxy=miny+window.innerHeight-oh;
+    var maxx=minx+window.innerWidth-ow;
+  }else{
+    var minx=document.body.scrollLeft;
+    var miny=document.body.scrollTop;
+    var maxy=miny+document.body.clientHeight-oh;
+    var maxx=minx+document.body.clientWidth-ow;
+  }  
+  var x=this.x;
+  var y=this.y;
+  if(x<minx) x=minx;
+  if(y<miny) y=miny;
+  if(x>maxx) x=maxx;
+  if(y>maxy) y=maxy;
+ 
+  var coord=new Coordinate(x,y);
+  coord.reposition(this.div);  
+  }
+}
+
+floatingObject.prototype.stop=function(){
+  this.canScroll=false;
+	this.div.style["offsetTop"] = "";
+	this.div.style["offsetLeft"] = "";
+  this.div.style["position"]="";
+  this.div.style["zIndex"]="";
+
+}
+floatingObject.prototype.start=function(){
+  this.canScroll=true;
+  this.div.style["position"]="absolute";
+  this.div.style["zIndex"]=99999;  
+  this.scroll();
+}

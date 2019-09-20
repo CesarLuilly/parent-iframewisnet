@@ -1,0 +1,370 @@
+article.shopping_cart section {
+width: 675px;
+}
+
+section.ecommerce aside {
+width: 25%;
+float: right;
+}
+section.ecommerce aside section, article.contentbox  {
+margin-bottom: 20px;
+border: 1px solid #a6a8ab;
+border-top: none;
+border-radius: 5px;
+}
+section.ecommerce aside h3 {
+font: bold 14px/28px Arial,Helvetica,sans-serif;
+padding: 0px 10px;
+border-radius: 5px 5px 0px 0px;
+}
+section.ecommerce aside ul {
+list-style-position: outside;
+margin: 0 !important;
+padding: 10px 23px;
+border: 1px solid #a6a8ab;
+border-top: none;
+}
+
+section.ecommerce aside ul li {
+	margin-bottom: 5px;
+	line-height: 24px;
+	}
+section.ecommerce aside p,section.ecommerce aside div.payopts{
+padding: 0px 10px 20px 10px;
+margin-top: 10px;
+}
+section.ecommerce aside section.proof h3 {
+margin-bottom: 10px;
+}
+section.ecommerce aside section.proof p {
+text-align: center;
+}
+section.ecommerce aside section p label,section.ecommerce aside section div.payopts label {
+	display: inline-block;
+	width: 170px;
+	vertical-align: top;
+}
+
+article.shopping_cart section div div.item, article.shopping_cart section div h3.item {
+width: 25%;
+}
+article.shopping_cart section div div.details, article.shopping_cart section div h3.details {
+width: 35%;
+}
+article.shopping_cart.engine-1 section div div.details, article.shopping_cart.engine-1 section div h3.details {
+/* width: 40%; */
+}
+	article.shopping_cart section div div.item, article.shopping_cart section div h3.item {
+	width: 22%;
+	}
+	article.shopping_cart section div div.details, article.shopping_cart section div h3.details {
+	width: 40%;
+	}
+	article.shopping_cart .quantity,
+	article.shopping_cart .price {
+		width: 9%;
+	}
+article.shopping_cart h3.price {
+	float: right;
+}
+article.shopping_cart .quantity, article.shopping_cart .price {
+	text-align: right;
+}
+
+section.ecommerce table tr td:first-child, section.ecommerce table tr th:first-child {
+vertical-align: baseline;
+text-align: right;
+}
+
+section.ecommerce table.address_form td, section.ecommerce table.address_form th {
+	text-align: right;
+}
+section.ecommerce table td, section.ecommerce table th {
+text-align: left;
+padding-left: 10px;
+}
+
+
+article.shopping_cart section.body {
+border: 1px solid #A6A8AB;
+border-top: none;
+}
+article.shopping_cart section.footer {
+border: 0px none;
+text-align: right;
+}
+
+/* Continue Shopping */
+
+.continueshopping {
+width: 100%;
+padding: 0 ;
+background-color: #fff;
+height: auto;
+border-left: 1px solid #A6A8AB;
+border-right: 1px solid #A6A8AB;
+overflow: auto;
+}
+
+.continueshopping hr {
+color: rgba(100,100,100,0.1);
+background-color: rgba(100,100,100,0.1);
+width: 96%;
+margin: 0 2% 20px 2%;
+float: right;
+}
+
+.continueshopping .button {
+float: right;
+margin: 10px 2% 10px 0;
+}
+
+/* Engine 1 Footer */
+
+article.shopping_cart section.footer div div {
+margin: 10px 0px;
+padding: 0px;
+width: 100%;
+text-align: right;
+}
+article.shopping_cart section.footer div div table {
+width: 40%;
+display: inline-table;
+margin-bottom: 10px;
+font-size: 14px;
+line-height: 24px;
+text-align: right;
+border-collapse: collapse;
+}
+article.shopping_cart section.footer div div table td:first-child {
+padding-right: 0px;
+min-width: 0px;
+
+}
+article.shopping_cart section.footer div div table td {
+padding-right: 15px;
+min-width: 1%;
+text-align: right;
+}
+article.shopping_cart section.footer div div table td span {
+margin-left: 25px;
+}
+article.shopping_cart section.footer div div table tfoot tr td:first-child {
+text-align: center;
+}
+article.shopping_cart section.footer div div table tfoot tr td:first-child span {
+float: right;
+}
+article.shopping_cart section.footer div div table tfoot tr td {
+font-weight: bold;
+}
+
+article.shopping_cart section.footer div div small {
+width: 250px;
+float: right;
+font-size: 11px;
+text-align: left;
+clear: both;
+margin-top: 20px;
+}
+
+article.shopping_cart section.footer div div table tfoot tr:last-child td:first-child {
+	-webkit-border-radius: 5px 0 0 5px;
+	-moz-border-radius: 5px 0 0 5px;
+	-o-border-radius: 5px 0 0 5px;
+	border-radius: 5px 0 0 5px;
+}
+
+article.shopping_cart section.footer div div table tfoot tr:last-child td:last-child {
+	-webkit-border-radius: 0 5px 5px 0;
+	-moz-border-radius: 0 5px 5px 0;
+	-o-border-radius: 0 5px 5px 0;
+	border-radius:0 5px 5px 0;
+	}
+
+
+/* Login Page */
+
+img.lockimg {
+	margin: 0 8px 6px 6px;
+	}
+
+section.ecommerce aside.left.opc-bg-color {
+width: 22%;
+float: left;
+margin-top: 10px;
+padding: 1%;
+min-height: 572px;
+background-color: #3B96CB !important;
+}
+section.ecommerce aside.left h2 {
+padding-top: 0px;
+font: bold 20px/40px Arial,Helvetica,sans-serif;
+color: #000 !important;
+background-color: #3B96CB !important;
+}
+article.account_login p.breadcrumb-steps, section.ecommerce p.breadcrumb-steps {
+padding: 10px 0px 10px 0;
+}
+article.account_login p.login-message, section.ecommerce p.login-message {
+padding: 10px 0px 5px 20px;
+}
+
+article.account_login p, section.ecommerce p.breadcrumb-steps {
+font-size: 13px;
+line-height: 19px;
+padding-bottom: 10px;
+}
+article.account_login h3 {
+margin: 0 0 10px;
+}
+article.account_login.address_page h3 {
+margin-bottom: 0px;
+}
+
+article.account_login section {
+float: left;
+width: 32%;
+margin-left: 6%;
+}
+article.account_login section.billing.address {
+clear: left;
+}
+article.account_login table {
+width: 100%;
+/*line-height: 34px;*/
+vertical-align: top;
+}
+article.account_login section h3 {
+padding: 0px 10px;
+font: bold 14px/28px Arial,Helvetica,sans-serif;
+}
+article.account_login section div.form-row {
+margin-bottom: 10px;
+}
+
+
+
+
+article.account_login {
+	width: 100%;
+}
+article.account_login.address_page  section {
+	width: 100%;
+	position: relative;
+}
+article.account_login section {
+	width: 41%;
+}
+article.account_login > section {
+	width: 65%;
+	margin: 0px auto;
+	padding-bottom: 20px;
+	float: none;
+	clear: both;
+	border: 1px solid #a6a8ab;
+	overflow: auto;
+	border-radius: 7px;
+}
+article.account_login section h3 {
+	padding: 0px;
+}
+article.account_login > section > h3 {
+	padding: 0 0 0 10px;
+}
+article.account_login section h3 span.right {
+	float: right;
+}
+article.account_login section h3 span.right img {
+	vertical-align: middle;
+}
+article.account_login h4 {
+margin-top: 20px;
+}
+
+
+/* Address Page */
+article.account_login section select {
+    width: 93%;
+}
+article.account_login section.address {
+    width: 33%;
+    margin-left: 3%;
+}
+article.account_login section.address.delivery {
+    width: 23%;
+}
+article.account_login section.address.delivery p {
+		font-size: 12px;
+    font-weight: bold;
+}
+section.ecommerce table td.collapse input[type="checkbox"], article.account_login section.address.delivery p input[type="radio"] {
+		vertical-align: -2px;
+}
+article.account_login section h3.collapse {
+	margin: 0px;
+}
+section.ecommerce table td.collapse {
+	line-height: 16px;
+	padding-bottom: 8px;
+}
+section.ecommerce table td.collapse label {
+	font-size: 11px;
+	margin-bottom: 5px;
+}
+section.ecommerce table td.heightholder {
+	line-height: 18px;
+	height: 18px;
+	background-color: tranparent;
+}
+section.ecommerce table td.expand {
+	padding-top: 15px;
+}
+
+
+/*-------Confirmation Page--------*/
+
+#content-area ol.progress {
+margin: 50px auto 25px auto;
+padding: 0px 0px 0px 67px;
+background: url('../images/ecom-next_step.png') no-repeat 0px 67px;
+width: 350px;}
+
+#content-area ol.progress li { background: #555555; color: #FFF; padding-left: 7px; width: 276px; margin: 0px 0px 10px 0px; font-weight: bold; }
+#content-area ol.progress li.completed { background: green; }
+#content-area ol.progress li p { color: #fff; margin-left: -2px; padding: 0px 0px 0px 10px; display: inline-block; width: 250px; font-weight: normal; }
+
+section.ecommerce h3.contentbox {
+    font: bold 14px/28px Arial,Helvetica,sans-serif;
+    padding: 0 0 0 10px;
+		border-radius: 5px 5px 0 0;
+}
+
+section.ecommerce article.confirmation, .contentbox {
+	width: 50%;
+	float: left;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+	}
+
+ article.contentbox  {
+ 	padding: 10px 15px;
+	-webkit-border-radius: 0 0 5px 5px;
+	-moz-border-radius: 0 0 5px 5px;
+	-o-border-radius: 0 0 5px 5px;
+	border-radius:0 0 5px 5px;
+	}
+
+section.address > div.coverup {
+  background: none repeat scroll 0 0 #FFFFFF;
+  bottom: 0;
+  height: 100%;
+  left: 0;
+  opacity: 0.7;
+	filter: alpha(opacity=70);
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 100%;
+}

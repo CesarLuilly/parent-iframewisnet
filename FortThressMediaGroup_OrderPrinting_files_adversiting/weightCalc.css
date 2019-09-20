@@ -1,0 +1,23 @@
+ #weightcalcform{ }
+ #weightcalcform .bump .icon { line-height:2px; font-size:2px; }
+ #weightcalcform .selectedline{  }
+ #weightcalcform .selectedline .bump{ width:15px; cursor: pointer;  }
+ #weightcalcform .selectedline .bump .icon{background-image:url(../images/down.png);   width:12px; height:13px; cursor: pointer;  }
+ #weightcalcform .unselectedline{  }
+ #weightcalcform .unselectedline .bump{width:15px; cursor: pointer;  }
+ #weightcalcform .unselectedline .bump .icon {background-image:url(../images/right.png); width:10px; height:13px; cursor: pointer;  }
+ #weightcalcform .newline .bump{ width:15px;  }
+ #weightcalcform .newline .bump .icon{ width:12px; height:15px; }
+ #weightcalcform .title{ font-weight:bold; width:350px;  }
+ #weightcalcform input.title{ width:300px;  }
+ #weightcalcform .unselectedline .contentRow{ display:none;  }
+ #weightcalcform .selectedline .contentRow{  }
+ #weightcalcform .contentCell{ padding:2px 15px 2px 15px;  }
+ #weightcalcform .contentCell .title{  width:310px;  }
+ #weightcalcform .contentCell .contentCell  .title{  width:270px;  }
+ 
+
+ #weightcalcform input.number{ width:50px;  }
+ 
+ 
+  

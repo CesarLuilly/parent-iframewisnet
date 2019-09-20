@@ -1,0 +1,209 @@
+/*
+  Trouble shooting:  
+    Margins thow off the position in IE (use Padding instead)
+*/
+if(navigator && navigator.vendor && navigator.vendor.indexOf('Apple')==0) SAFARI=true; else SAFARI=false;
+function DragObject(element,notTransparent){
+  this.debug=false;
+  this.container=element;
+  if(notTransparent) this.transparent=false;
+  else this.transparent=true;
+  element.dragObject=this;
+  
+  this.handleCount=0;
+  this.findHandles(this.container);  
+  
+  this.onDragStart=new Function();
+  this.onDrag=new Function();
+  this.onDragEnd=new Function();
+  
+  this.constrain=null;
+  
+  // if no handles were found THIS is the handle.
+  if(this.handleCount==0){
+    this.createHandle(this.container);
+  }
+  
+  this.isDragging=false;
+  this.threshold=2;
+  this.safariAdjust=1;
+}
+
+// find all elements within element with "isDragHandle" defined (create handles based on these elements)
+function DragObject_findHandles(obj){
+  var x=obj.childNodes;
+  if(obj.childNodes!=null){
+    for(var i=0; i<x.length; i++){
+      if(x[i].tagName!=null&&x[i].getAttribute("isDragHandle")){
+
+         this.createHandle(x[i]);
+      }
+      this.findHandles(x[i]);
+    }
+  }    
+}
+
+// define an element as a drag handle for this object.  
+// only start dragging when a handle is clicked.
+function DragObject_createHandle(element){
+   this.handleCount++;
+   var instance=this;
+   element.onmousedown=function(evt){instance.onMouseDown(evt);};
+}   
+
+function DragObject_onMouseDown(evt) {  
+		evt = new Evt(evt);
+    if(evt.source.tagName=='SELECT'||evt.source.tagName=='INPUT'||evt.source.tagName=='TEXTAREA') return true;
+		var mouse = new Coordinate(evt.x,evt.y);
+    var offset=Geometry.offsetBox(this.container);
+    var position;
+    if(this.container.style.position=="absolute") position=offset;
+    else position=Geometry.positionBox(this.container);    
+    
+//		this.originalOpacity = this.container.style.opacity;
+		this.originalZIndex = this.container.style.zIndex;
+        
+		this.initialMouseCoordinate = mouse;
+		this.dragCoordinate = mouse;
+
+		this.onDragStart(position, offset);
+    
+    var instance= this;
+		document.onmousemove = function(evt){instance.onMouseMove(evt);};
+		document.onmouseup = function(evt){instance.onMouseUp(evt);};
+
+		return false;
+}
+
+  
+  
+function DragObject_onMouseMove(evt) {
+		evt = new Evt(evt);
+		var mouse = new Coordinate(evt.x,evt.y);
+    var offset=Geometry.offsetBox(this.container);
+    var position;
+    if(this.container.style.position=="absolute") position=offset;
+    else position=Geometry.positionBox(this.container);    
+    var ulPosition=position.upperLeft;
+
+
+    
+		if (!this.isDragging) {
+			if (this.threshold > 0) {
+				var distance = this.initialMouseCoordinate.distance(mouse);
+				if (distance < this.threshold) return true;
+			} 
+			this.isDragging = true;
+			this.container.style["zIndex"] = 999999;
+			if(this.transparent) DHTML.setOpacity(this.container,0.5);
+      document.body.ondrag = function () { return false; };
+      document.body.onselectstart = function () { return false; };     
+      if (typeof document.body.style.MozUserSelect!="undefined")  document.body.style.MozUserSelect="none";
+    }
+   
+    var adjustedOffset=offset.upperLeft.plus(mouse.minus(this.dragCoordinate));
+    var constrainedOffset=adjustedOffset;
+    if(this.constrain) constrainedOffset=adjustedOffset.constrain(this.constrain);
+
+
+    if(SAFARI){
+    var tmpPos=mouse.minus(this.dragCoordinate);
+    tmpPos.y=tmpPos.y*(-1);
+		ulPosition = ulPosition.plus(tmpPos).plus(constrainedOffset.minus(adjustedOffset)).minus(Geometry.offsetBox(document.body).upperLeft);    
+    }else{
+		ulPosition = ulPosition.plus(mouse.minus(this.dragCoordinate)).plus(constrainedOffset.minus(adjustedOffset)).minus(Geometry.offsetBox(document.body).upperLeft);    
+    }
+    
+    
+    
+//   	ulPosition = ulPosition.plus(mouse.minus(this.dragCoordinate)).plus(constrainedOffset.minus(adjustedOffset)).minus(Geometry.offsetBox(document.body).upperLeft);    
+		ulPosition.reposition(this.container);
+		this.dragCoordinate = mouse;
+
+
+    
+		var offsetBefore = Geometry.upperLeftOffset(this.container);
+		this.onDrag(position,offset);
+		var offsetAfter = Geometry.upperLeftOffset(this.container);
+
+		if (!offsetBefore.equals(offsetAfter)) {
+			var errorDelta = offsetBefore.minus(offsetAfter);
+			ulPosition = Geometry.upperLeftOffset(this.container).plus(errorDelta);
+			ulPosition.reposition(this.container);
+		}
+		return false;
+}
+
+function DragObject_onMouseUp(evt) {
+		evt = new Evt(evt);
+		var mouse = new Coordinate(evt.x,evt.y);
+    var offset=Geometry.offsetBox(this.container);
+    var position;
+    if(this.container.style.position=="absolute") position=offset;
+    else position=Geometry.positionBox(this.container);    
+    var ulPosition=position.upperLeft;
+
+		document.onmousemove = null;
+		document.onmouseup   = null;
+		this.onDragEnd(position, offset);
+
+		if (this.isDragging) {
+			// restoring zIndex before opacity avoids visual flicker in Firefox
+
+			this.container.style["zIndex"] = this.originalZIndex;
+			if(this.transparent) DHTML.setOpacity(this.container, 1); // this.originalOpacity);
+      document.body.ondrag = null;
+      document.body.onselectstart = null;  
+      if (typeof document.body.style.MozUserSelect!="undefined")  document.body.style.MozUserSelect="";
+		}    
+		this.isDragging = false;
+
+		return false;
+}
+
+// set the constraining box and reposition
+function DragObject_setConstrain(obj){
+  this.constrain=Geometry.offsetBox(obj);
+  var offset=Geometry.offsetBox(this.container);
+  var position;
+  if(this.container.style.position=="absolute") position=offset;
+  else position=Geometry.positionBox(this.container);    
+  var ulPosition=position.upperLeft;
+
+  var adjustedOffset=offset.upperLeft;
+  var constrainedOffset=adjustedOffset.constrain(this.constrain);
+  ulPosition = ulPosition.plus(constrainedOffset.minus(adjustedOffset));    
+	ulPosition.reposition(this.container);
+  
+}
+
+// show and reposition
+DragObject.prototype.setPosition=function(obj){
+  this.constrain=null;
+  var offset=Geometry.offsetBox(this.container);
+  var position=Geometry.offsetBox(obj);
+  var ulPosition=position.upperLeft;
+
+  var adjustedOffset=offset.upperLeft;
+//  var constrainedOffset=adjustedOffset.constrain(this.constrain);
+//  ulPosition = ulPosition.plus(constrainedOffset.minus(adjustedOffset));    
+	ulPosition.reposition(this.container);
+  
+}
+DragObject.prototype.setXY=function(x,y){
+  this.constrain=null;
+  var ulPosition = new Coordinate(x,y);    
+	ulPosition.reposition(this.container);
+  
+}
+
+
+
+/*************************  prototypes *******************************/
+
+DragObject.prototype.findHandles=DragObject_findHandles;
+DragObject.prototype.createHandle=DragObject_createHandle;
+DragObject.prototype.onMouseDown=DragObject_onMouseDown;
+DragObject.prototype.onMouseMove=DragObject_onMouseMove;
+DragObject.prototype.onMouseUp=DragObject_onMouseUp;
+DragObject.prototype.setConstrain=DragObject_setConstrain;
