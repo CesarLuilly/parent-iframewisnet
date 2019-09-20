@@ -581,26 +581,82 @@ a.site-color:hover,input.site-color:hover,input.site-color-alt{
 	border-top-color: #46331d;         
 }
 
-	#div_carga{
+	#div_load{
     position:fixed;
     top:0;
     left:0;
     width:100%;
     height:100%;
     bottom: 0;
-	
 	background-color:#2f3030;
 	opacity: 1;
 	display:block;
 	z-index:1;
 }
-
-	#cargador{
-    position:absolute;
-    top:50%;
-    left: 50%;
-    margin-top: -25px;
-    margin-left: -25px;
+	.loader {
+  position: absolute;
+  top:50%;
+  left: 50%;
+  margin-top: -25px;
+  margin-left: -25px;
+  font-size: 10px;
+  
+  text-indent: -9999em;
+  width: 11em;
+  height: 11em;
+  border-radius: 50%;
+  background: #ffffff;
+  background: -moz-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+  background: -webkit-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+  background: -o-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+  background: -ms-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+  background: linear-gradient(to right, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+  
+  -webkit-animation: load3 1.4s infinite linear;
+  animation: load3 1.4s infinite linear;
+}
+.loader:before {
+  width: 50%;
+  height: 50%;
+  background: #FFF;
+  border-radius: 100% 0 0 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  content: '';
+}
+.loader:after {
+  background: #09f;
+  width: 75%;
+  height: 75%;
+  border-radius: 50%;
+  content: '';
+  margin: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+@-webkit-keyframes load3 {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
+@keyframes load3 {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
 }
     </style>
     
@@ -623,7 +679,7 @@ a.site-color:hover,input.site-color:hover,input.site-color-alt{
           };
           window.addEventListener('message', receiveMessage);
 
-          document.getElementById("div_carga").style.display = "none";
+          document.getElementById("div_load").style.display = "none";
      }    </script>
     
     
@@ -640,8 +696,8 @@ a.site-color:hover,input.site-color:hover,input.site-color-alt{
   
   <body class=" OdysseyFramed printing  ">
   	
-  	<div id="div_carga">
-		<img id="cargador" src="load.gif" width="50">
+  	<div id="div_load">
+		<div class="loader" id="loader">Loading...</div>
 	</div>
   	
     <div id="content-wrapper">
