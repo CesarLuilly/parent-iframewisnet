@@ -89,45 +89,7 @@
 
     
 
-<script type="text/javascript">
 
-
-
-
-
-
-	
-
-
-
-	htmlHide[0].style.display = "none";
-	
-	function receiveMessage(e) {
-		
-		var styleSheet = document.createElement('style')
-		styleSheet.innerHTML = e.data[0];
-		document.body.appendChild(styleSheet);
-		
-		if(e.data[1] == "getUrlLocation"){
-			sendMessage('' + document.location);	
-			
-		}
-		
-	}
-	
-	var sendMessage = function(msg){
-		window.parent.postMessage(msg, '*');
-	};
-	
-	window.addEventListener('message', receiveMessage);
-
-	
-window.onload = function() {
-	htmlHide[0].style.display = "block"; 
-	document.getElementById("div_carga").style.display = "none";
-
-}
-</script>
 
     
         
@@ -646,7 +608,23 @@ a.site-color:hover,input.site-color:hover,input.site-color-alt{
     
     
     <script type="text/javascript" src="./FortThressMediaGroup_OrderPrinting_files/iframeResizer.contentWindow.min.js.descarga"></script>
+    <script type="text/javascript">
+        window.onload = function() {
+          function receiveMessage(e) {
+               var styleSheet = document.createElement('style')
+               styleSheet.innerHTML = e.data[0];
+               document.body.appendChild(styleSheet);
+               if(e.data[1] == "getUrlLocation"){
+                    sendMessage('' + document.location);
+              }
+          }
+          var sendMessage = function(msg){
+               window.parent.postMessage(msg, '*');
+          };
+          window.addEventListener('message', receiveMessage);
 
+          document.getElementById("div_carga").style.display = "none";
+     }    </script>
     
     
   </head>
